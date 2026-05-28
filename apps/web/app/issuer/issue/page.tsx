@@ -1,3 +1,4 @@
+import { AuthNav } from "../../auth/AuthNav";
 import { IssueCredentialForm } from "./IssueCredentialForm";
 
 export default function IssueCredentialPage() {
@@ -5,9 +6,7 @@ export default function IssueCredentialPage() {
     <main className="app-shell">
       <header className="topbar">
         <a href="/">RevealID</a>
-        <nav>
-          <a href="/wallet">Wallet</a>
-        </nav>
+        <AuthNav />
       </header>
       <section className="workspace">
         <div className="section-heading">

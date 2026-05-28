@@ -24,6 +24,7 @@ a {
   display: grid;
   place-items: center;
   padding: 32px;
+  position: relative;
 }
 
 .panel {
@@ -118,6 +119,7 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 18px;
   min-height: 64px;
   border-bottom: 1px solid #d9e1e7;
   padding: 0 32px;
@@ -125,16 +127,42 @@ button:disabled {
   font-weight: 750;
 }
 
+.home-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
 .topbar nav {
+  align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 18px;
   color: #28615e;
+}
+
+.nav-user {
+  color: #43515f;
+  font-weight: 650;
+}
+
+.text-button {
+  min-height: auto;
+  border: 0;
+  padding: 0;
+  color: #28615e;
+  background: transparent;
 }
 
 .workspace {
   width: min(920px, 100%);
   margin: 0 auto;
   padding: 32px;
+}
+
+.narrow-workspace {
+  width: min(560px, 100%);
 }
 
 .section-heading {
@@ -154,6 +182,10 @@ button:disabled {
   border-radius: 8px;
   padding: 24px;
   background: #ffffff;
+}
+
+.auth-form {
+  max-width: 100%;
 }
 
 label {
@@ -234,6 +266,7 @@ input {
   .shell {
     padding: 18px;
     place-items: start center;
+    padding-top: 96px;
   }
 
   .panel {
@@ -244,6 +277,21 @@ input {
   .workspace {
     padding-left: 18px;
     padding-right: 18px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-bottom: 14px;
+    padding-top: 14px;
+  }
+
+  .home-topbar {
+    min-height: 78px;
+  }
+
+  .topbar nav {
+    gap: 12px;
   }
 
   .form-grid,

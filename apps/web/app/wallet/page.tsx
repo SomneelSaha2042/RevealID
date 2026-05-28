@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { AuthNav } from "../auth/AuthNav";
 
 type WalletCredential = {
   id: string;
@@ -36,9 +37,7 @@ export default async function WalletPage() {
     <main className="app-shell">
       <header className="topbar">
         <a href="/">RevealID</a>
-        <nav>
-          <a href="/issuer/issue">Issue</a>
-        </nav>
+        <AuthNav />
       </header>
       <section className="workspace">
         <div className="section-heading">

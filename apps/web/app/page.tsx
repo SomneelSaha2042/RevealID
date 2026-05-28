@@ -1,3 +1,5 @@
+import { AuthNav } from "./auth/AuthNav";
+
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
 async function getHealth() {
@@ -14,6 +16,10 @@ export default async function Home() {
 
   return (
     <main className="shell">
+      <header className="topbar home-topbar">
+        <a href="/">RevealID</a>
+        <AuthNav />
+      </header>
       <section className="panel">
         <p className="eyebrow">RevealID</p>
         <h1>Credential wallet foundation</h1>
@@ -22,6 +28,8 @@ export default async function Home() {
           list that never renders undisclosed marks.
         </p>
         <div className="actions">
+          <a href="/login">Sign in</a>
+          <a href="/register">Register holder</a>
           <a href="/issuer/issue">Issue credential</a>
           <a href="/wallet">Open wallet</a>
         </div>
