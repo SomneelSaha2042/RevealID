@@ -14,6 +14,7 @@ FROM deps AS build
 COPY . .
 RUN pnpm --filter @revealid/api prisma:generate
 RUN pnpm --filter @revealid/contracts build
+RUN pnpm --filter @revealid/crypto build
 RUN pnpm --filter @revealid/api build
 
 FROM base AS runner
