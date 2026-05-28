@@ -23,7 +23,24 @@ export async function registerCredentialRoutes(
           200: {
             type: "object",
             required: ["keys"],
-            properties: { keys: { type: "array", items: { type: "object" } } }
+            properties: {
+              keys: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["kty", "crv", "x", "kid", "alg", "use"],
+                  properties: {
+                    kty: { type: "string" },
+                    crv: { type: "string" },
+                    x: { type: "string" },
+                    kid: { type: "string" },
+                    alg: { type: "string" },
+                    use: { type: "string" }
+                  },
+                  additionalProperties: false
+                }
+              }
+            }
           }
         }
       }

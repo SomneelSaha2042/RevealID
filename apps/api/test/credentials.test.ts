@@ -214,6 +214,14 @@ describe("credential issuance", () => {
     const metadata = await app.inject({ method: "GET", url: "/issuer/metadata" });
 
     expect(jwks.statusCode).toBe(200);
+    expect(jwks.json().keys[0]).toMatchObject({
+      kty: "OKP",
+      crv: "Ed25519",
+      alg: "EdDSA",
+      use: "sig"
+    });
+    expect(jwks.json().keys[0].x).toEqual(expect.any(String));
+    expect(jwks.json().keys[0].kid).toEqual(expect.any(String));
     expect(jwks.json().keys[0].d).toBeUndefined();
     expect(metadata.statusCode).toBe(200);
     expect(metadata.json().jwksUri).toBe("http://localhost:4000/.well-known/jwks.json");
