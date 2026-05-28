@@ -1,0 +1,22 @@
+{
+  "name": "@revealid/crypto",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run --environment node",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@sd-jwt/crypto-nodejs": "^0.10.0",
+    "@sd-jwt/core": "^0.10.0",
+    "@sd-jwt/sd-jwt-vc": "^0.10.0",
+    "@sd-jwt/types": "^0.10.0",
+    "jose": "^5.2.4"
+  },
+  "devDependencies": {
+    "@sd-jwt/utils": "^0.10.0"
+  }
+}

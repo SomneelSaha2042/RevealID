@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+.vite/
+coverage/
+.turbo/
+tsconfig.tsbuildinfo
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs and local runtime scratch
+*.log
+.dev-*.log
+.docker-temp/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: revealid
+          POSTGRES_USER: revealid
+          POSTGRES_PASSWORD: revealid
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U revealid -d revealid"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://revealid:revealid@localhost:5432/revealid?schema=public
+      API_BASE_URL: http://localhost:4000
+      NEXT_PUBLIC_API_BASE_URL: /api
+      AUTH_ACCESS_TOKEN_SECRET: ci-access-secret-at-least-32-characters
+      AUTH_REFRESH_TOKEN_SECRET: ci-refresh-secret-at-least-32-characters
+      COOKIE_SECURE: "false"
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build

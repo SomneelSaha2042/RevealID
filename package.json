@@ -1,0 +1,28 @@
+{
+  "name": "revealid",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "corepack pnpm --parallel --filter @revealid/api --filter @revealid/web dev",
+    "dev:api": "corepack pnpm --filter @revealid/api dev",
+    "dev:web": "corepack pnpm --filter @revealid/web dev",
+    "db:generate": "corepack pnpm --filter @revealid/api prisma:generate",
+    "db:migrate": "corepack pnpm --filter @revealid/api prisma:migrate",
+    "db:seed": "corepack pnpm --filter @revealid/api db:seed",
+    "test": "corepack pnpm -r test",
+    "test:crypto": "corepack pnpm --filter @revealid/crypto test",
+    "lint": "corepack pnpm -r lint",
+    "typecheck": "corepack pnpm -r typecheck",
+    "build": "corepack pnpm -r build",
+    "verify": "corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@types/node": "^20.16.0",
+    "eslint": "^9.16.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.0"
+  }
+}
