@@ -1,6 +1,6 @@
 import argon2 from "argon2";
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../src/app.js";
 import type { AppConfig } from "../src/config.js";
 
@@ -31,22 +31,29 @@ type HolderKeyRecord = {
   createdAt: Date;
 };
 
+type CredentialRecord = {
+  id: string;
+  holderId: string;
+  issuerId: string;
+  credentialType: string;
+  issuerName: string;
+  encryptedSdJwt: unknown;
+  issuedAt: Date;
+  createdAt: Date;
+};
+
 function makePrismaMock() {
   const users = new Map<string, UserRecord>();
   const sessions = new Map<string, SessionRecord>();
   const holderKeys = new Map<string, HolderKeyRecord>();
+  const credentials = new Map<string, CredentialRecord>();
 
   return {
     users,
-    sessions,
     holderKeys,
+    credentials,
     user: {
       create: async ({ data }: { data: Omit<UserRecord, "id"> }) => {
-        if ([...users.values()].some((user) => user.email === data.email)) {
-          const error = new Error("Unique constraint failed") as Error & { code: string };
-          error.code = "P2002";
-          throw error;
-        }
         const user = { id: randomUUID(), ...data };
         users.set(user.id, user);
         return user;
@@ -78,16 +85,7 @@ function makePrismaMock() {
         sessions.set(where.id, updated);
         return updated;
       },
-      updateMany: async ({ where, data }: { where: { tokenHash: string; revokedAt: null }; data: Partial<SessionRecord> }) => {
-        let count = 0;
-        for (const [id, session] of sessions) {
-          if (session.tokenHash === where.tokenHash && session.revokedAt === where.revokedAt) {
-            sessions.set(id, { ...session, ...data });
-            count += 1;
-          }
-        }
-        return { count };
-      }
+      updateMany: async () => ({ count: 0 })
     },
     holderKey: {
       create: async ({ data }: { data: Omit<HolderKeyRecord, "id" | "createdAt"> }) => {
@@ -98,7 +96,16 @@ function makePrismaMock() {
       findUnique: async ({ where }: { where: { userId: string } }) => holderKeys.get(where.userId) ?? null
     },
     credential: {
-      findMany: async () => []
+      create: async ({ data }: { data: Omit<CredentialRecord, "id" | "createdAt"> }) => {
+        const credential = { id: randomUUID(), createdAt: new Date(), ...data };
+        credentials.set(credential.id, credential);
+        return credential;
+      },
+      findMany: async ({ where }: { where: { holderId: string } }) =>
+        [...credentials.values()]
+          .filter((credential) => credential.holderId === where.holderId)
+          .sort((a, b) => b.issuedAt.getTime() - a.issuedAt.getTime())
+          .map(({ id, credentialType, issuerName, issuedAt }) => ({ id, credentialType, issuerName, issuedAt }))
     },
     $disconnect: async () => {}
   };
@@ -119,11 +126,9 @@ const config: AppConfig = {
   COOKIE_SECURE: false
 };
 
-function cookieHeader(setCookie: string[]) {
-  return setCookie.map((value) => value.split(";")[0]).join("; ");
-}
+const cookieHeader = (setCookie: string[]) => setCookie.map((value) => value.split(";")[0]).join("; ");
 
-describe("auth routes", () => {
+describe("credential issuance", () => {
   let prisma: ReturnType<typeof makePrismaMock>;
   let app: Awaited<ReturnType<typeof buildApp>>;
 
@@ -143,86 +148,74 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("registers a holder and returns first-party auth cookies", async () => {
-    const response = await app.inject({
+  it("lets an issuer issue an encrypted holder-bound credential", async () => {
+    await app.inject({
       method: "POST",
       url: "/auth/register",
-      payload: { email: "new@example.edu", name: "New Holder", password: "NewHolderPass123!" }
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
     });
-
-    expect(response.statusCode).toBe(201);
-    expect(response.json().user.role).toBe("HOLDER");
-    expect(response.headers["set-cookie"]).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("rid_access="),
-        expect.stringContaining("rid_refresh="),
-        expect.stringContaining("rid_csrf=")
-      ])
-    );
-    expect(prisma.holderKeys.size).toBe(1);
-  });
-
-  it("lets seeded issuer login and access issuer route", async () => {
-    const login = await app.inject({
+    const issuerLogin = await app.inject({
       method: "POST",
       url: "/auth/login",
       payload: { email: "issuer@demo-university.edu", password: "DemoIssuerPass123!" }
     });
 
     const response = await app.inject({
-      method: "GET",
-      url: "/issuer/ping",
-      headers: { cookie: cookieHeader(login.headers["set-cookie"] as string[]) }
+      method: "POST",
+      url: "/credentials/issue",
+      headers: {
+        cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": issuerLogin.json().csrfToken
+      },
+      payload: {
+        holderEmail: "holder@example.edu",
+        degree: "BSc Computer Science",
+        graduationYear: 2026,
+        cgpa: 3.9,
+        marks: 875
+      }
     });
 
-    expect(response.statusCode).toBe(200);
+    expect(response.statusCode).toBe(201);
+    const stored = [...prisma.credentials.values()][0];
+    expect(stored.encryptedSdJwt).toMatchObject({ alg: "A256GCM" });
+    expect(JSON.stringify(stored)).not.toContain("3.9");
+    expect(JSON.stringify(stored)).not.toContain("875");
   });
 
-  it("rejects unauthenticated protected routes", async () => {
-    const response = await app.inject({ method: "GET", url: "/me" });
-    expect(response.statusCode).toBe(401);
-  });
-
-  it("prevents holders from accessing issuer routes", async () => {
-    const login = await app.inject({
+  it("prevents holders from issuing credentials", async () => {
+    const holderLogin = await app.inject({
       method: "POST",
       url: "/auth/register",
       payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
     });
+
     const response = await app.inject({
-      method: "GET",
-      url: "/issuer/ping",
-      headers: { cookie: cookieHeader(login.headers["set-cookie"] as string[]) }
+      method: "POST",
+      url: "/credentials/issue",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: {
+        holderEmail: "holder@example.edu",
+        degree: "BSc Computer Science",
+        graduationYear: 2026,
+        cgpa: 3.9,
+        marks: 875
+      }
     });
 
     expect(response.statusCode).toBe(403);
   });
 
-  it("requires csrf token for authenticated state-changing requests", async () => {
-    const login = await app.inject({
-      method: "POST",
-      url: "/auth/register",
-      payload: { email: "csrf@example.edu", name: "CSRF Holder", password: "HolderPass123!" }
-    });
-    const cookies = cookieHeader(login.headers["set-cookie"] as string[]);
-    const missingCsrf = await app.inject({
-      method: "POST",
-      url: "/auth/logout",
-      headers: { cookie: cookies }
-    });
-    expect(missingCsrf.statusCode).toBe(403);
+  it("exposes issuer metadata and public verification key only", async () => {
+    const jwks = await app.inject({ method: "GET", url: "/.well-known/jwks.json" });
+    const metadata = await app.inject({ method: "GET", url: "/issuer/metadata" });
 
-    const csrfToken = login.json().csrfToken as string;
-    const logout = await app.inject({
-      method: "POST",
-      url: "/auth/logout",
-      headers: { cookie: cookies, "x-csrf-token": csrfToken }
-    });
-    expect(logout.statusCode).toBe(200);
-  });
-
-  it("renders swagger docs", async () => {
-    const response = await app.inject({ method: "GET", url: "/docs" });
-    expect(response.statusCode).toBe(200);
+    expect(jwks.statusCode).toBe(200);
+    expect(jwks.json().keys[0].d).toBeUndefined();
+    expect(metadata.statusCode).toBe(200);
+    expect(metadata.json().jwksUri).toBe("http://localhost:4000/.well-known/jwks.json");
   });
 });

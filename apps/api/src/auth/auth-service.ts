@@ -1,6 +1,7 @@
 import argon2 from "argon2";
 import type { AuthUser, LoginRequest, RegisterRequest } from "@revealid/contracts";
 import type { Prisma } from "../db.js";
+import type { KeyManagementService } from "../credentials/key-management-service.js";
 import { TokenService } from "./token-service.js";
 
 const refreshTtlMs = 1000 * 60 * 60 * 24 * 30;
@@ -15,7 +16,8 @@ export type AuthSession = {
 export class AuthService {
   constructor(
     private readonly prisma: Prisma,
-    private readonly tokens: TokenService
+    private readonly tokens: TokenService,
+    private readonly keys?: KeyManagementService
   ) {}
 
   async register(input: RegisterRequest): Promise<AuthSession> {
@@ -28,6 +30,7 @@ export class AuthService {
         passwordHash
       }
     });
+    await this.keys?.createHolderKey(user.id);
 
     return this.createSession({
       id: user.id,

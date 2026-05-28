@@ -8,6 +8,10 @@ const configSchema = z.object({
   WEB_ORIGIN: z.string().url().default("http://localhost:3000"),
   AUTH_ACCESS_TOKEN_SECRET: z.string().min(32),
   AUTH_REFRESH_TOKEN_SECRET: z.string().min(32),
+  CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
+  ISSUER_PRIVATE_JWK: z.string().optional(),
+  ISSUER_ID: z.string().url().default("http://localhost:4000"),
+  ISSUER_NAME: z.string().min(1).default("RevealID Demo Issuer"),
   COOKIE_SECURE: z
     .enum(["true", "false"])
     .default("true")

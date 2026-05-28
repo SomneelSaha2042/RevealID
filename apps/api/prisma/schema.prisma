@@ -21,6 +21,9 @@ model User {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   refreshTokens RefreshSession[]
+  holderKey    HolderKey?
+  heldCredentials Credential[]  @relation("HolderCredentials")
+  issuedCredentials Credential[] @relation("IssuerCredentials")
 }
 
 model RefreshSession {
@@ -36,4 +39,29 @@ model RefreshSession {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model HolderKey {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String   @unique @db.Uuid
+  publicJwk             Json
+  encryptedPrivateJwk   Json
+  createdAt             DateTime @default(now())
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Credential {
+  id                    String   @id @default(uuid()) @db.Uuid
+  holderId              String   @db.Uuid
+  issuerId              String   @db.Uuid
+  credentialType        String
+  issuerName            String
+  encryptedSdJwt        Json
+  issuedAt              DateTime
+  createdAt             DateTime @default(now())
+  holder                User     @relation("HolderCredentials", fields: [holderId], references: [id], onDelete: Cascade)
+  issuer                User     @relation("IssuerCredentials", fields: [issuerId], references: [id], onDelete: Restrict)
+
+  @@index([holderId, issuedAt])
+  @@index([issuerId])
 }

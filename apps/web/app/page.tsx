@@ -18,9 +18,13 @@ export default async function Home() {
         <p className="eyebrow">RevealID</p>
         <h1>Credential wallet foundation</h1>
         <p className="lede">
-          Gate 1 is wired for first-party API calls, HTTP-only auth cookies, session refresh, and role-checked issuer
-          operations.
+          Gate 2 adds issuer-signed SD-JWT credentials, encrypted holder custody, public issuer keys, and a safe wallet
+          list that never renders undisclosed marks.
         </p>
+        <div className="actions">
+          <a href="/issuer/issue">Issue credential</a>
+          <a href="/wallet">Open wallet</a>
+        </div>
         <div className="status">
           <span aria-hidden="true" />
           {health}

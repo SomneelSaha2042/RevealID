@@ -14,6 +14,11 @@ body {
   margin: 0;
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .shell {
   min-height: 100vh;
   display: grid;
@@ -67,11 +72,162 @@ h1 {
   font-weight: 650;
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.actions a,
+button {
+  min-height: 42px;
+  border: 1px solid #1b4b48;
+  border-radius: 8px;
+  padding: 0 16px;
+  color: #ffffff;
+  background: #1b4b48;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actions a {
+  display: inline-flex;
+  align-items: center;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .status span {
   width: 10px;
   height: 10px;
   border-radius: 999px;
   background: #2a9d63;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: #f5f7f8;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  border-bottom: 1px solid #d9e1e7;
+  padding: 0 32px;
+  background: #ffffff;
+  font-weight: 750;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 18px;
+  color: #28615e;
+}
+
+.workspace {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.section-heading {
+  margin-bottom: 24px;
+}
+
+.section-heading h1 {
+  font-size: 2.25rem;
+  line-height: 1.1;
+}
+
+.form-panel {
+  display: grid;
+  gap: 18px;
+  max-width: 720px;
+  border: 1px solid #d9e1e7;
+  border-radius: 8px;
+  padding: 24px;
+  background: #ffffff;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  color: #43515f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+input {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid #bdc9d3;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #17212b;
+  background: #ffffff;
+  font: inherit;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-message {
+  margin: 0;
+  font-weight: 700;
+}
+
+.form-message.success {
+  color: #1b6a3b;
+}
+
+.form-message.error {
+  color: #9c2525;
+}
+
+.empty-state {
+  margin: 0;
+  border: 1px solid #d9e1e7;
+  border-radius: 8px;
+  padding: 24px;
+  background: #ffffff;
+  color: #43515f;
+}
+
+.credential-list {
+  display: grid;
+  gap: 12px;
+}
+
+.credential-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #d9e1e7;
+  border-radius: 8px;
+  padding: 18px;
+  background: #ffffff;
+}
+
+.credential-card h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.credential-card p,
+.credential-card time {
+  margin: 0;
+  color: #43515f;
 }
 
 @media (max-width: 520px) {
@@ -82,5 +238,20 @@ h1 {
 
   .panel {
     padding: 24px;
+  }
+
+  .topbar,
+  .workspace {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .form-grid,
+  .credential-card {
+    grid-template-columns: 1fr;
+  }
+
+  .credential-card {
+    display: grid;
   }
 }
