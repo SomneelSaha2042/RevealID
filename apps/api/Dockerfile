@@ -5,7 +5,9 @@ RUN corepack enable
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/crypto/package.json packages/crypto/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
@@ -21,4 +23,4 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/api ./apps/api
 EXPOSE 4000
-CMD ["pnpm", "--filter", "@revealid/api", "start"]
+CMD ["pnpm", "--filter", "@revealid/api", "start:railway"]
