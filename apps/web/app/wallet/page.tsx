@@ -54,9 +54,14 @@ export default async function WalletPage() {
                   <h2>{credential.credentialType}</h2>
                   <p>{credential.issuerName}</p>
                 </div>
-                <time dateTime={credential.issuedAt}>
-                  {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}
-                </time>
+                <div className="card-actions">
+                  <time dateTime={credential.issuedAt}>
+                    {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}
+                  </time>
+                  <a className="inline-action" href={`/wallet/${credential.id}`}>
+                    Share
+                  </a>
+                </div>
               </article>
             ))}
           </div>

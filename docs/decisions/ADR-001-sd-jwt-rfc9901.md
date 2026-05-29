@@ -15,11 +15,17 @@ The project must never reveal claims the holder did not explicitly disclose, so 
 - Use `jose` for JWK handling and Ed25519 signing/verification.
 - Require holder key binding with `aud`, `nonce`, and `iat` checks.
 - Keep all direct cryptographic library calls inside `CredentialCryptoService` for Phase 0.
+- For Gate 3 public sharing, create presentations only through `PresentationService`.
+- Use opaque 256-bit share tokens and store only SHA-256 token hashes.
+- Store generated SD-JWT presentations encrypted at rest.
+- Enforce share expiry, revocation, and max-view policy before returning disclosed claims.
 
 ## Consequences
 - Verifiers only receive disclosed claims.
 - Key binding is mandatory when required by the verifier.
 - Tampered disclosures fail through SD-JWT digest and issuer signature verification.
 - Presentations replayed to the wrong audience or nonce fail holder binding verification.
+- Share URLs carry opaque tokens, but the database never stores raw tokens.
+- Share creation responses, share URLs, and verifier payloads do not expose non-disclosed fields.
 - Protocol changes must be accompanied by tests and documentation updates.
 - This approach does not claim zero-knowledge proofs or document genuineness.

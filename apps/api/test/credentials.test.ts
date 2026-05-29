@@ -42,16 +42,36 @@ type CredentialRecord = {
   createdAt: Date;
 };
 
+type ShareRecord = {
+  id: string;
+  holderId: string;
+  credentialId: string;
+  tokenHash: string;
+  audience: string;
+  nonce: string;
+  keyBindingIssuedAt: number;
+  encryptedPresentation: unknown;
+  disclosedClaims: string[];
+  privateClaims: string[];
+  expiresAt: Date;
+  maxViews: number;
+  views: number;
+  revokedAt: Date | null;
+  createdAt: Date;
+};
+
 function makePrismaMock() {
   const users = new Map<string, UserRecord>();
   const sessions = new Map<string, SessionRecord>();
   const holderKeys = new Map<string, HolderKeyRecord>();
   const credentials = new Map<string, CredentialRecord>();
+  const shares = new Map<string, ShareRecord>();
 
   return {
     users,
     holderKeys,
     credentials,
+    shares,
     user: {
       create: async ({ data }: { data: Omit<UserRecord, "id"> }) => {
         const user = { id: randomUUID(), ...data };
@@ -101,11 +121,58 @@ function makePrismaMock() {
         credentials.set(credential.id, credential);
         return credential;
       },
+      findFirst: async ({ where }: { where: { id: string; holderId: string } }) => {
+        const credential = credentials.get(where.id);
+        if (!credential || credential.holderId !== where.holderId) return null;
+        return credential;
+      },
       findMany: async ({ where }: { where: { holderId: string } }) =>
         [...credentials.values()]
           .filter((credential) => credential.holderId === where.holderId)
           .sort((a, b) => b.issuedAt.getTime() - a.issuedAt.getTime())
           .map(({ id, credentialType, issuerName, issuedAt }) => ({ id, credentialType, issuerName, issuedAt }))
+    },
+    share: {
+      create: async ({ data }: { data: Omit<ShareRecord, "createdAt" | "views" | "revokedAt"> }) => {
+        const share = { createdAt: new Date(), views: 0, revokedAt: null, ...data };
+        shares.set(share.id, share);
+        return share;
+      },
+      findMany: async ({ where }: { where: { holderId: string } }) =>
+        [...shares.values()]
+          .filter((share) => share.holderId === where.holderId)
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .map((share) => ({
+            ...share,
+            credential: credentials.get(share.credentialId)
+          })),
+      findFirst: async ({ where }: { where: { id: string; holderId: string } }) => {
+        const share = shares.get(where.id);
+        if (!share || share.holderId !== where.holderId) return null;
+        return share;
+      },
+      findUnique: async ({ where }: { where: { tokenHash?: string; id?: string } }) => {
+        const share = where.id
+          ? shares.get(where.id)
+          : [...shares.values()].find((candidate) => candidate.tokenHash === where.tokenHash);
+        if (!share) return null;
+        const credential = credentials.get(share.credentialId);
+        if (!credential) return null;
+        return {
+          ...share,
+          credential: {
+            ...credential,
+            holder: { id: credential.holderId }
+          }
+        };
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<ShareRecord> }) => {
+        const share = shares.get(where.id);
+        if (!share) throw new Error("Share not found");
+        const updated = { ...share, ...data };
+        shares.set(where.id, updated);
+        return updated;
+      }
     },
     $disconnect: async () => {}
   };
@@ -225,5 +292,135 @@ describe("credential issuance", () => {
     expect(jwks.json().keys[0].d).toBeUndefined();
     expect(metadata.statusCode).toBe(200);
     expect(metadata.json().jwksUri).toBe("http://localhost:4000/.well-known/jwks.json");
+  });
+
+  it("creates a holder-bound selective share without exposing hidden fields", async () => {
+    const holderRegister = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
+    });
+    const issuerLogin = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: { email: "issuer@demo-university.edu", password: "DemoIssuerPass123!" }
+    });
+    await app.inject({
+      method: "POST",
+      url: "/credentials/issue",
+      headers: {
+        cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": issuerLogin.json().csrfToken
+      },
+      payload: {
+        holderEmail: "holder@example.edu",
+        degree: "BSc Computer Science",
+        graduationYear: 2026,
+        cgpa: 3.9,
+        marks: 875
+      }
+    });
+
+    const credentialId = [...prisma.credentials.values()][0].id;
+    const shareResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/share",
+      headers: {
+        cookie: cookieHeader(holderRegister.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderRegister.json().csrfToken
+      },
+      payload: {
+        credentialId,
+        claims: ["degree", "graduationYear"],
+        ttlMinutes: 60,
+        maxViews: 1
+      }
+    });
+
+    expect(shareResponse.statusCode).toBe(201);
+    const shareBody = shareResponse.json().share;
+    expect(shareBody.verificationUrl).toContain("/verify/");
+    expect(shareBody.disclosedClaims).toEqual(["degree", "graduationYear"]);
+    expect(JSON.stringify(shareBody)).not.toContain("3.9");
+    expect(JSON.stringify(shareBody)).not.toContain("875");
+    expect(JSON.stringify(shareBody)).not.toContain("cgpa");
+    expect(JSON.stringify(shareBody)).not.toContain("marks");
+
+    const token = new URL(shareBody.verificationUrl).pathname.split("/").at(-1) ?? "";
+    const stored = [...prisma.shares.values()][0];
+    expect(stored.tokenHash).not.toBe(token);
+    expect(stored.encryptedPresentation).toMatchObject({ alg: "A256GCM" });
+    expect(JSON.stringify(stored)).not.toContain(token);
+    expect(JSON.stringify(stored)).not.toContain("3.9");
+    expect(JSON.stringify(stored)).not.toContain("875");
+
+    const verifyResponse = await app.inject({ method: "GET", url: `/shares/verify/${token}` });
+    expect(verifyResponse.statusCode).toBe(200);
+    expect(verifyResponse.json().claims).toEqual({
+      degree: "BSc Computer Science",
+      graduationYear: 2026
+    });
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("3.9");
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("875");
+
+    const secondView = await app.inject({ method: "GET", url: `/shares/verify/${token}` });
+    expect(secondView.statusCode).toBe(410);
+  });
+
+  it("lets a holder cancel an active share", async () => {
+    const holderRegister = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
+    });
+    const issuerLogin = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: { email: "issuer@demo-university.edu", password: "DemoIssuerPass123!" }
+    });
+    await app.inject({
+      method: "POST",
+      url: "/credentials/issue",
+      headers: {
+        cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": issuerLogin.json().csrfToken
+      },
+      payload: {
+        holderEmail: "holder@example.edu",
+        degree: "BSc Computer Science",
+        graduationYear: 2026,
+        cgpa: 3.9,
+        marks: 875
+      }
+    });
+    const shareResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/share",
+      headers: {
+        cookie: cookieHeader(holderRegister.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderRegister.json().csrfToken
+      },
+      payload: {
+        credentialId: [...prisma.credentials.values()][0].id,
+        claims: ["degree"],
+        ttlMinutes: 60,
+        maxViews: 5
+      }
+    });
+
+    const share = shareResponse.json().share;
+    const token = new URL(share.verificationUrl).pathname.split("/").at(-1) ?? "";
+    const cancelResponse = await app.inject({
+      method: "DELETE",
+      url: `/shares/${share.id}`,
+      headers: {
+        cookie: cookieHeader(holderRegister.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderRegister.json().csrfToken
+      }
+    });
+    const verifyResponse = await app.inject({ method: "GET", url: `/shares/verify/${token}` });
+
+    expect(cancelResponse.statusCode).toBe(204);
+    expect(verifyResponse.statusCode).toBe(410);
   });
 });

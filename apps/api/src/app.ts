@@ -12,6 +12,7 @@ import { CredentialCryptoService } from "@revealid/crypto";
 import { CredentialService } from "./credentials/credential-service.js";
 import { EnvelopeEncryptionService } from "./credentials/envelope-encryption-service.js";
 import { KeyManagementService } from "./credentials/key-management-service.js";
+import { PresentationService } from "./credentials/presentation-service.js";
 import { authPlugin } from "./http/auth-plugin.js";
 import { registerAuthRoutes } from "./routes/auth-routes.js";
 import { registerCredentialRoutes } from "./routes/credential-routes.js";
@@ -88,11 +89,19 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     options.config.ISSUER_ID,
     options.config.ISSUER_NAME
   );
+  const presentationService = new PresentationService(
+    options.prisma,
+    new CredentialCryptoService(),
+    keyManagementService,
+    envelopeEncryption,
+    options.config.WEB_ORIGIN
+  );
   const authService = new AuthService(options.prisma, tokenService, keyManagementService);
   await app.register(authPlugin, { prisma: options.prisma, tokenService });
   await registerAuthRoutes(app, { authService, cookieSecure: options.config.COOKIE_SECURE });
   await registerCredentialRoutes(app, {
     credentialService,
+    presentationService,
     keyManagementService,
     issuerId: options.config.ISSUER_ID,
     issuerName: options.config.ISSUER_NAME
@@ -112,6 +121,12 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     }
     if (error.message === "Holder not found" || error.message === "Holder key not found") {
       return reply.code(404).send({ error: "Holder not found" });
+    }
+    if (error.message === "Credential not found" || error.message === "Share not found") {
+      return reply.code(404).send({ error: "Not found" });
+    }
+    if (error.message === "Share expired" || error.message === "Share revoked" || error.message === "Share exhausted") {
+      return reply.code(410).send({ error: error.message });
     }
     app.log.error(error);
     return reply.code(500).send({ error: "Internal server error" });

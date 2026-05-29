@@ -7,6 +7,7 @@ export async function AuthNav() {
   return (
     <nav>
       <a href="/wallet">Wallet</a>
+      <a href="/wallet/shares">Shares</a>
       <a href="/issuer/issue">Issue</a>
       {user ? (
         <>

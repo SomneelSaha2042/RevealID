@@ -24,6 +24,7 @@ model User {
   holderKey    HolderKey?
   heldCredentials Credential[]  @relation("HolderCredentials")
   issuedCredentials Credential[] @relation("IssuerCredentials")
+  shares       Share[]
 }
 
 model RefreshSession {
@@ -61,7 +62,32 @@ model Credential {
   createdAt             DateTime @default(now())
   holder                User     @relation("HolderCredentials", fields: [holderId], references: [id], onDelete: Cascade)
   issuer                User     @relation("IssuerCredentials", fields: [issuerId], references: [id], onDelete: Restrict)
+  shares                Share[]
 
   @@index([holderId, issuedAt])
   @@index([issuerId])
+}
+
+model Share {
+  id                    String   @id @default(uuid()) @db.Uuid
+  holderId              String   @db.Uuid
+  credentialId          String   @db.Uuid
+  tokenHash             String   @unique
+  audience              String
+  nonce                 String
+  keyBindingIssuedAt    Int
+  encryptedPresentation Json
+  disclosedClaims       String[]
+  privateClaims         String[]
+  expiresAt             DateTime
+  maxViews              Int
+  views                 Int      @default(0)
+  revokedAt             DateTime?
+  createdAt             DateTime @default(now())
+  holder                User     @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  credential            Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@index([holderId, createdAt])
+  @@index([credentialId])
+  @@index([expiresAt])
 }

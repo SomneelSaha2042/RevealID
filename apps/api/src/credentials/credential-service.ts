@@ -1,12 +1,12 @@
 import { CredentialCryptoService } from "@revealid/crypto";
 import type { IssueCredentialInput } from "@revealid/crypto";
-import type { IssueCredentialRequest, WalletCredential } from "@revealid/contracts";
+import type { CredentialDetailResponse, IssueCredentialRequest, WalletCredential } from "@revealid/contracts";
 import type { Prisma } from "../db.js";
-import { EnvelopeEncryptionService } from "./envelope-encryption-service.js";
+import { EnvelopeEncryptionService, type EncryptedEnvelope } from "./envelope-encryption-service.js";
 import { KeyManagementService } from "./key-management-service.js";
 
 const credentialType = "RevealIDAcademicCredential";
-const credentialAad = (holderId: string, issuedAt: string) => `revealid:credential:${holderId}:${issuedAt}`;
+export const credentialAad = (holderId: string, issuedAt: string) => `revealid:credential:${holderId}:${issuedAt}`;
 
 const disclosureFrame = {
   _sd: ["degree", "graduationYear", "cgpa", "marks"]
@@ -86,6 +86,41 @@ export class CredentialService {
       issuerName: credential.issuerName,
       issuedAt: credential.issuedAt.toISOString()
     }));
+  }
+
+  async getHolderCredentialDetail(holderId: string, credentialId: string): Promise<CredentialDetailResponse["credential"]> {
+    const credential = await this.prisma.credential.findFirst({
+      where: { id: credentialId, holderId },
+      select: {
+        id: true,
+        credentialType: true,
+        issuerName: true,
+        issuedAt: true,
+        encryptedSdJwt: true
+      }
+    });
+    if (!credential) {
+      throw new Error("Credential not found");
+    }
+
+    const sdJwt = this.envelopeEncryption.decryptUtf8(
+      credential.encryptedSdJwt as unknown as EncryptedEnvelope,
+      credentialAad(holderId, credential.issuedAt.toISOString())
+    );
+    const claims = await this.crypto.getPresentationClaims(sdJwt);
+
+    return {
+      id: credential.id,
+      credentialType: credential.credentialType,
+      issuerName: credential.issuerName,
+      issuedAt: credential.issuedAt.toISOString(),
+      claims: {
+        degree: String(claims.degree),
+        graduationYear: Number(claims.graduationYear),
+        cgpa: Number(claims.cgpa),
+        marks: Number(claims.marks)
+      }
+    };
   }
 
   private toIssueResponse(credential: {

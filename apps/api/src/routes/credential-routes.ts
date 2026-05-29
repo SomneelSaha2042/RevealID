@@ -1,15 +1,22 @@
 import type { FastifyInstance } from "fastify";
 import {
+  createShareRequestSchema,
+  createShareResponseSchema,
+  credentialDetailResponseSchema,
   issueCredentialRequestSchema,
+  shareHistoryResponseSchema,
+  verifyShareResponseSchema,
   walletCredentialListResponseSchema
 } from "@revealid/contracts";
 import type { CredentialService } from "../credentials/credential-service.js";
 import type { KeyManagementService } from "../credentials/key-management-service.js";
+import type { PresentationService } from "../credentials/presentation-service.js";
 
 export async function registerCredentialRoutes(
   app: FastifyInstance,
   options: {
     credentialService: CredentialService;
+    presentationService: PresentationService;
     keyManagementService: KeyManagementService;
     issuerId: string;
     issuerName: string;
@@ -145,6 +152,133 @@ export async function registerCredentialRoutes(
       return walletCredentialListResponseSchema.parse({
         credentials: await options.credentialService.listWalletCredentials(holderId)
       });
+    }
+  );
+
+  app.get(
+    "/wallet/credentials/:id",
+    {
+      preHandler: app.authenticate,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } }
+        }
+      }
+    },
+    async (request) => {
+      const holderId = request.user?.id;
+      if (!holderId) {
+        throw new Error("Unauthenticated");
+      }
+      const params = request.params as { id: string };
+      return credentialDetailResponseSchema.parse({
+        credential: await options.credentialService.getHolderCredentialDetail(holderId, params.id)
+      });
+    }
+  );
+
+  app.post(
+    "/credentials/share",
+    {
+      preHandler: async (request, reply) => {
+        await app.requireCsrf(request, reply);
+        if (reply.sent) return;
+        if (request.user?.role !== "HOLDER") {
+          return reply.code(403).send({ error: "Holder role required" });
+        }
+      },
+      schema: {
+        body: {
+          type: "object",
+          required: ["credentialId", "claims", "ttlMinutes", "maxViews"],
+          properties: {
+            credentialId: { type: "string", format: "uuid" },
+            claims: {
+              type: "array",
+              minItems: 1,
+              items: { type: "string", enum: ["degree", "graduationYear", "cgpa", "marks"] }
+            },
+            audience: { type: "string", minLength: 1, maxLength: 240 },
+            ttlMinutes: { type: "integer", minimum: 5, maximum: 43200 },
+            maxViews: { type: "integer", minimum: 1, maximum: 100 }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const holderId = request.user?.id;
+      if (!holderId) {
+        return reply.code(401).send({ error: "Unauthenticated" });
+      }
+      const share = await options.presentationService.createShare(
+        holderId,
+        createShareRequestSchema.parse(request.body)
+      );
+      return reply.code(201).send(createShareResponseSchema.parse({ share }));
+    }
+  );
+
+  app.get(
+    "/shares",
+    {
+      preHandler: app.authenticate
+    },
+    async (request) => {
+      const holderId = request.user?.id;
+      if (!holderId) {
+        throw new Error("Unauthenticated");
+      }
+      return shareHistoryResponseSchema.parse({
+        shares: await options.presentationService.listShares(holderId)
+      });
+    }
+  );
+
+  app.delete(
+    "/shares/:id",
+    {
+      preHandler: async (request, reply) => {
+        await app.requireCsrf(request, reply);
+        if (reply.sent) return;
+        if (request.user?.role !== "HOLDER") {
+          return reply.code(403).send({ error: "Holder role required" });
+        }
+      },
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } }
+        }
+      }
+    },
+    async (request, reply) => {
+      const holderId = request.user?.id;
+      if (!holderId) {
+        return reply.code(401).send({ error: "Unauthenticated" });
+      }
+      const params = request.params as { id: string };
+      await options.presentationService.cancelShare(holderId, params.id);
+      return reply.code(204).send();
+    }
+  );
+
+  app.get(
+    "/shares/verify/:token",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["token"],
+          properties: { token: { type: "string", minLength: 32 } }
+        }
+      }
+    },
+    async (request) => {
+      const params = request.params as { token: string };
+      return verifyShareResponseSchema.parse(await options.presentationService.verifyShare(params.token));
     }
   );
 }

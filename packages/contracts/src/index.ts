@@ -56,6 +56,67 @@ export const walletCredentialListResponseSchema = z.object({
   credentials: z.array(walletCredentialSchema)
 });
 
+export const academicClaimKeySchema = z.enum(["degree", "graduationYear", "cgpa", "marks"]);
+export type AcademicClaimKey = z.infer<typeof academicClaimKeySchema>;
+
+export const credentialDetailResponseSchema = z.object({
+  credential: walletCredentialSchema.extend({
+    claims: z.object({
+      degree: z.string(),
+      graduationYear: z.number().int(),
+      cgpa: z.number(),
+      marks: z.number().int()
+    })
+  })
+});
+
+export const createShareRequestSchema = z.object({
+  credentialId: z.string().uuid(),
+  claims: z.array(academicClaimKeySchema).min(1),
+  audience: z.string().min(1).max(240).optional(),
+  ttlMinutes: z.number().int().min(5).max(60 * 24 * 30),
+  maxViews: z.number().int().min(1).max(100)
+});
+
+export const createShareResponseSchema = z.object({
+  share: z.object({
+    id: z.string().uuid(),
+    verificationUrl: z.string().url(),
+    qrPayload: z.string().url(),
+    expiresAt: z.string().datetime(),
+    maxViews: z.number().int(),
+    disclosedClaims: z.array(academicClaimKeySchema)
+  })
+});
+
+export const shareHistoryItemSchema = z.object({
+  id: z.string().uuid(),
+  credentialId: z.string().uuid(),
+  credentialType: z.string(),
+  issuerName: z.string(),
+  audience: z.string(),
+  expiresAt: z.string().datetime(),
+  maxViews: z.number().int(),
+  views: z.number().int(),
+  revokedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  disclosedClaims: z.array(academicClaimKeySchema)
+});
+
+export const shareHistoryResponseSchema = z.object({
+  shares: z.array(shareHistoryItemSchema)
+});
+
+export const verifyShareResponseSchema = z.object({
+  status: z.literal("verified"),
+  credentialType: z.string(),
+  issuerName: z.string(),
+  issuedAt: z.string().datetime(),
+  audience: z.string(),
+  expiresAt: z.string().datetime(),
+  claims: z.record(academicClaimKeySchema, z.union([z.string(), z.number()]))
+});
+
 export const issuerMetadataResponseSchema = z.object({
   issuer: z.string().url(),
   name: z.string().min(1),
@@ -71,4 +132,10 @@ export type IssueCredentialRequest = z.infer<typeof issueCredentialRequestSchema
 export type IssueCredentialResponse = z.infer<typeof issueCredentialResponseSchema>;
 export type WalletCredential = z.infer<typeof walletCredentialSchema>;
 export type WalletCredentialListResponse = z.infer<typeof walletCredentialListResponseSchema>;
+export type CredentialDetailResponse = z.infer<typeof credentialDetailResponseSchema>;
+export type CreateShareRequest = z.infer<typeof createShareRequestSchema>;
+export type CreateShareResponse = z.infer<typeof createShareResponseSchema>;
+export type ShareHistoryItem = z.infer<typeof shareHistoryItemSchema>;
+export type ShareHistoryResponse = z.infer<typeof shareHistoryResponseSchema>;
+export type VerifyShareResponse = z.infer<typeof verifyShareResponseSchema>;
 export type IssuerMetadataResponse = z.infer<typeof issuerMetadataResponseSchema>;
