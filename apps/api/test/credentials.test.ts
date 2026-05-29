@@ -39,6 +39,7 @@ type CredentialRecord = {
   issuerName: string;
   encryptedSdJwt: unknown;
   issuedAt: Date;
+  revokedAt: Date | null;
   createdAt: Date;
 };
 
@@ -60,18 +61,33 @@ type ShareRecord = {
   createdAt: Date;
 };
 
+type VerificationAuditRecord = {
+  id: string;
+  shareId?: string;
+  credentialId?: string;
+  tokenHashPrefix: string;
+  result: string;
+  failureCode?: string;
+  checks: unknown;
+  requestIpHash?: string;
+  userAgentHash?: string;
+  createdAt: Date;
+};
+
 function makePrismaMock() {
   const users = new Map<string, UserRecord>();
   const sessions = new Map<string, SessionRecord>();
   const holderKeys = new Map<string, HolderKeyRecord>();
   const credentials = new Map<string, CredentialRecord>();
   const shares = new Map<string, ShareRecord>();
+  const verificationAudits = new Map<string, VerificationAuditRecord>();
 
   return {
     users,
     holderKeys,
     credentials,
     shares,
+    verificationAudits,
     user: {
       create: async ({ data }: { data: Omit<UserRecord, "id"> }) => {
         const user = { id: randomUUID(), ...data };
@@ -116,21 +132,30 @@ function makePrismaMock() {
       findUnique: async ({ where }: { where: { userId: string } }) => holderKeys.get(where.userId) ?? null
     },
     credential: {
-      create: async ({ data }: { data: Omit<CredentialRecord, "id" | "createdAt"> }) => {
-        const credential = { id: randomUUID(), createdAt: new Date(), ...data };
+      create: async ({ data }: { data: Omit<CredentialRecord, "id" | "createdAt" | "revokedAt"> & { revokedAt?: Date | null } }) => {
+        const credential = { id: randomUUID(), createdAt: new Date(), revokedAt: null, ...data };
         credentials.set(credential.id, credential);
         return credential;
       },
-      findFirst: async ({ where }: { where: { id: string; holderId: string } }) => {
+      findFirst: async ({ where }: { where: { id: string; holderId?: string; issuerId?: string } }) => {
         const credential = credentials.get(where.id);
-        if (!credential || credential.holderId !== where.holderId) return null;
+        if (!credential) return null;
+        if (where.holderId && credential.holderId !== where.holderId) return null;
+        if (where.issuerId && credential.issuerId !== where.issuerId) return null;
         return credential;
       },
       findMany: async ({ where }: { where: { holderId: string } }) =>
         [...credentials.values()]
           .filter((credential) => credential.holderId === where.holderId)
           .sort((a, b) => b.issuedAt.getTime() - a.issuedAt.getTime())
-          .map(({ id, credentialType, issuerName, issuedAt }) => ({ id, credentialType, issuerName, issuedAt }))
+          .map(({ id, credentialType, issuerName, issuedAt }) => ({ id, credentialType, issuerName, issuedAt })),
+      update: async ({ where, data }: { where: { id: string }; data: Partial<CredentialRecord> }) => {
+        const credential = credentials.get(where.id);
+        if (!credential) throw new Error("Credential not found");
+        const updated = { ...credential, ...data };
+        credentials.set(where.id, updated);
+        return updated;
+      }
     },
     share: {
       create: async ({ data }: { data: Omit<ShareRecord, "createdAt" | "views" | "revokedAt"> }) => {
@@ -174,6 +199,13 @@ function makePrismaMock() {
         return updated;
       }
     },
+    verificationAudit: {
+      create: async ({ data }: { data: Omit<VerificationAuditRecord, "id" | "createdAt"> }) => {
+        const audit = { id: randomUUID(), createdAt: new Date(), ...data };
+        verificationAudits.set(audit.id, audit);
+        return audit;
+      }
+    },
     $disconnect: async () => {}
   };
 }
@@ -194,6 +226,65 @@ const config: AppConfig = {
 };
 
 const cookieHeader = (setCookie: string[]) => setCookie.map((value) => value.split(";")[0]).join("; ");
+
+async function createIssuedShare(
+  app: Awaited<ReturnType<typeof buildApp>>,
+  prisma: ReturnType<typeof makePrismaMock>,
+  options?: { maxViews?: number; claims?: string[] }
+) {
+  const holderRegister = await app.inject({
+    method: "POST",
+    url: "/auth/register",
+    payload: { email: `holder-${randomUUID()}@example.edu`, name: "Holder", password: "HolderPass123!" }
+  });
+  const issuerLogin = await app.inject({
+    method: "POST",
+    url: "/auth/login",
+    payload: { email: "issuer@demo-university.edu", password: "DemoIssuerPass123!" }
+  });
+  await app.inject({
+    method: "POST",
+    url: "/credentials/issue",
+    headers: {
+      cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[]),
+      "x-csrf-token": issuerLogin.json().csrfToken
+    },
+    payload: {
+      holderEmail: holderRegister.json().user.email,
+      degree: "BSc Computer Science",
+      graduationYear: 2026,
+      cgpa: 3.9,
+      marks: 875
+    }
+  });
+  const credential = [...prisma.credentials.values()].at(-1);
+  if (!credential) throw new Error("Credential setup failed");
+  const shareResponse = await app.inject({
+    method: "POST",
+    url: "/credentials/share",
+    headers: {
+      cookie: cookieHeader(holderRegister.headers["set-cookie"] as string[]),
+      "x-csrf-token": holderRegister.json().csrfToken
+    },
+    payload: {
+      credentialId: credential.id,
+      claims: options?.claims ?? ["degree", "graduationYear"],
+      ttlMinutes: 60,
+      maxViews: options?.maxViews ?? 5
+    }
+  });
+  const share = shareResponse.json().share;
+  const token = new URL(share.verificationUrl).pathname.split("/").at(-1) ?? "";
+  const storedShare = [...prisma.shares.values()].at(-1);
+  if (!storedShare) throw new Error("Share setup failed");
+  return {
+    token,
+    share: storedShare,
+    credential,
+    issuerLogin,
+    holderRegister
+  };
+}
 
 describe("credential issuance", () => {
   let prisma: ReturnType<typeof makePrismaMock>;
@@ -422,5 +513,136 @@ describe("credential issuance", () => {
 
     expect(cancelResponse.statusCode).toBe(204);
     expect(verifyResponse.statusCode).toBe(410);
+  });
+
+  it("verifies an active presentation through the public verification API and audits without PII", async () => {
+    const { token } = await createIssuedShare(app, prisma);
+
+    const verifyResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token }
+    });
+
+    expect(verifyResponse.statusCode).toBe(200);
+    expect(verifyResponse.json()).toMatchObject({
+      status: "verified",
+      claims: {
+        degree: "BSc Computer Science",
+        graduationYear: 2026
+      }
+    });
+    expect(verifyResponse.json().checks.every((check: { status: string }) => check.status !== "failed")).toBe(true);
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("3.9");
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("875");
+
+    const audit = [...prisma.verificationAudits.values()][0];
+    expect(audit.result).toBe("verified");
+    expect(JSON.stringify(audit)).not.toContain("BSc Computer Science");
+    expect(JSON.stringify(audit)).not.toContain("3.9");
+    expect(JSON.stringify(audit)).not.toContain(token);
+  });
+
+  it("rejects expired, cancelled, revoked, tampered, and unknown verification states", async () => {
+    const expired = await createIssuedShare(app, prisma);
+    prisma.shares.set(expired.share.id, { ...expired.share, expiresAt: new Date(Date.now() - 1000) });
+    const expiredResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: expired.token }
+    });
+    expect(expiredResponse.json()).toMatchObject({ status: "invalid", failureCode: "expired" });
+
+    const cancelled = await createIssuedShare(app, prisma);
+    prisma.shares.set(cancelled.share.id, { ...cancelled.share, revokedAt: new Date() });
+    const cancelledResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: cancelled.token }
+    });
+    expect(cancelledResponse.json()).toMatchObject({ status: "invalid", failureCode: "cancelled" });
+
+    const revoked = await createIssuedShare(app, prisma);
+    prisma.credentials.set(revoked.credential.id, { ...revoked.credential, revokedAt: new Date() });
+    const revokedResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: revoked.token }
+    });
+    expect(revokedResponse.json()).toMatchObject({ status: "invalid", failureCode: "revoked" });
+
+    const tampered = await createIssuedShare(app, prisma);
+    prisma.shares.set(tampered.share.id, {
+      ...tampered.share,
+      encryptedPresentation: { ...(tampered.share.encryptedPresentation as Record<string, unknown>), ciphertext: "tampered" }
+    });
+    const tamperedResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: tampered.token }
+    });
+    expect(tamperedResponse.json()).toMatchObject({ status: "invalid", failureCode: "tampered" });
+
+    const unknownResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: "unknown-token-value-with-enough-length-123456" }
+    });
+    expect(unknownResponse.json()).toMatchObject({ status: "invalid", failureCode: "unknown" });
+  });
+
+  it("rejects wrong audience and nonce key-binding checks", async () => {
+    const wrongAudience = await createIssuedShare(app, prisma);
+    prisma.shares.set(wrongAudience.share.id, { ...wrongAudience.share, audience: "https://verifier.example/wrong" });
+    const wrongAudienceResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: wrongAudience.token }
+    });
+    expect(wrongAudienceResponse.json()).toMatchObject({ status: "invalid", failureCode: "tampered" });
+
+    const wrongNonce = await createIssuedShare(app, prisma);
+    prisma.shares.set(wrongNonce.share.id, { ...wrongNonce.share, nonce: "wrong-nonce" });
+    const wrongNonceResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token: wrongNonce.token }
+    });
+    expect(wrongNonceResponse.json()).toMatchObject({ status: "invalid", failureCode: "tampered" });
+  });
+
+  it("lets issuers revoke credentials and enforces rate limiting", async () => {
+    const { credential, issuerLogin, token } = await createIssuedShare(app, prisma);
+    const revokeResponse = await app.inject({
+      method: "POST",
+      url: `/credentials/${credential.id}/revoke`,
+      headers: {
+        cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": issuerLogin.json().csrfToken
+      }
+    });
+    const revokedVerifyResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/verify",
+      payload: { token }
+    });
+
+    expect(revokeResponse.statusCode).toBe(200);
+    expect(revokedVerifyResponse.json()).toMatchObject({ status: "invalid", failureCode: "revoked" });
+
+    let rateLimitedStatus = 0;
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/credentials/verify",
+        remoteAddress: "203.0.113.10",
+        payload: { token: `unknown-token-value-with-enough-length-${attempt}` }
+      });
+      if (response.statusCode === 429) {
+        rateLimitedStatus = response.statusCode;
+        break;
+      }
+    }
+    expect(rateLimitedStatus).toBe(429);
   });
 });

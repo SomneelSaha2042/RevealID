@@ -5,10 +5,13 @@ import {
   credentialDetailResponseSchema,
   issueCredentialRequestSchema,
   shareHistoryResponseSchema,
+  verifyCredentialRequestSchema,
+  verifyCredentialResponseSchema,
   verifyShareResponseSchema,
   walletCredentialListResponseSchema
 } from "@revealid/contracts";
 import type { CredentialService } from "../credentials/credential-service.js";
+import type { CredentialStatusService } from "../credentials/credential-status-service.js";
 import type { KeyManagementService } from "../credentials/key-management-service.js";
 import type { PresentationService } from "../credentials/presentation-service.js";
 
@@ -17,6 +20,7 @@ export async function registerCredentialRoutes(
   options: {
     credentialService: CredentialService;
     presentationService: PresentationService;
+    credentialStatusService: CredentialStatusService;
     keyManagementService: KeyManagementService;
     issuerId: string;
     issuerName: string;
@@ -180,6 +184,61 @@ export async function registerCredentialRoutes(
   );
 
   app.post(
+    "/credentials/:id/revoke",
+    {
+      preHandler: async (request, reply) => {
+        await app.requireCsrf(request, reply);
+        if (reply.sent) return;
+        if (request.user?.role !== "ISSUER") {
+          return reply.code(403).send({ error: "Issuer role required" });
+        }
+      },
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } }
+        },
+        response: {
+          200: {
+            type: "object",
+            required: ["credential"],
+            properties: {
+              credential: {
+                type: "object",
+                required: ["id", "revokedAt"],
+                properties: {
+                  id: { type: "string", format: "uuid" },
+                  revokedAt: { type: "string", format: "date-time" }
+                }
+              }
+            }
+          },
+          401: {
+            type: "object",
+            required: ["error"],
+            properties: { error: { type: "string" } }
+          },
+          403: {
+            type: "object",
+            required: ["error"],
+            properties: { error: { type: "string" } }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const issuerId = request.user?.id;
+      if (!issuerId) {
+        return reply.code(401).send({ error: "Unauthenticated" });
+      }
+      const params = request.params as { id: string };
+      const credential = await options.credentialStatusService.revokeCredential(issuerId, params.id);
+      return { credential };
+    }
+  );
+
+  app.post(
     "/credentials/share",
     {
       preHandler: async (request, reply) => {
@@ -262,6 +321,63 @@ export async function registerCredentialRoutes(
       const params = request.params as { id: string };
       await options.presentationService.cancelShare(holderId, params.id);
       return reply.code(204).send();
+    }
+  );
+
+  const verificationAttempts = new Map<string, { count: number; resetAt: number }>();
+  const verifyRateLimit = () => {
+    const now = Date.now();
+    const key = "public-credential-verify";
+    const current = verificationAttempts.get(key);
+    if (!current || current.resetAt <= now) {
+      verificationAttempts.set(key, { count: 1, resetAt: now + 60_000 });
+      return { allowed: true, retryAfterSeconds: 60 };
+    }
+    current.count += 1;
+    return {
+      allowed: current.count <= 20,
+      retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1000))
+    };
+  };
+
+  app.post(
+    "/credentials/verify",
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute"
+        }
+      },
+      preHandler: async (request, reply) => {
+        const rateLimitResult = verifyRateLimit();
+        if (!rateLimitResult.allowed) {
+          return reply
+            .code(429)
+            .header("retry-after", String(rateLimitResult.retryAfterSeconds))
+            .send({ error: "Rate limit exceeded" });
+        }
+      },
+      schema: {
+        body: {
+          type: "object",
+          required: ["token"],
+          additionalProperties: false,
+          properties: {
+            token: { type: "string", minLength: 1, maxLength: 512 }
+          }
+        }
+      }
+    },
+    async (request) => {
+      const body = verifyCredentialRequestSchema.parse(request.body);
+      return verifyCredentialResponseSchema.parse(
+        await options.presentationService.verifyCredential(body.token, {
+          ip: request.ip,
+          userAgent:
+            typeof request.headers["user-agent"] === "string" ? request.headers["user-agent"] : undefined
+        })
+      );
     }
   );
 

@@ -59,13 +59,16 @@ model Credential {
   issuerName            String
   encryptedSdJwt        Json
   issuedAt              DateTime
+  revokedAt             DateTime?
   createdAt             DateTime @default(now())
   holder                User     @relation("HolderCredentials", fields: [holderId], references: [id], onDelete: Cascade)
   issuer                User     @relation("IssuerCredentials", fields: [issuerId], references: [id], onDelete: Restrict)
   shares                Share[]
+  verificationAudits    VerificationAudit[]
 
   @@index([holderId, issuedAt])
   @@index([issuerId])
+  @@index([revokedAt])
 }
 
 model Share {
@@ -86,8 +89,28 @@ model Share {
   createdAt             DateTime @default(now())
   holder                User     @relation(fields: [holderId], references: [id], onDelete: Cascade)
   credential            Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  verificationAudits    VerificationAudit[]
 
   @@index([holderId, createdAt])
   @@index([credentialId])
   @@index([expiresAt])
+}
+
+model VerificationAudit {
+  id                    String   @id @default(uuid()) @db.Uuid
+  shareId               String?  @db.Uuid
+  credentialId          String?  @db.Uuid
+  tokenHashPrefix       String
+  result                String
+  failureCode           String?
+  checks                Json
+  requestIpHash         String?
+  userAgentHash         String?
+  createdAt             DateTime @default(now())
+  share                 Share?   @relation(fields: [shareId], references: [id], onDelete: SetNull)
+  credential            Credential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+
+  @@index([shareId, createdAt])
+  @@index([credentialId, createdAt])
+  @@index([result, createdAt])
 }

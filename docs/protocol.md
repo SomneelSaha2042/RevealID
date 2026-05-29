@@ -3,7 +3,7 @@
 ## Overview
 RevealID uses RFC 9901-style SD-JWT selective disclosure for academic credentials and aligns the credential envelope with the SD-JWT VC draft conventions used by `@sd-jwt/sd-jwt-vc`.
 
-Gate 3 adds public share links for holder-selected presentations. Credentials and presentations remain server-side encrypted at rest, and public verification responses expose disclosed claims only.
+Gate 4 adds public verification, issuer revocation, deterministic verifier checks, and privacy-safe verification audit events. Credentials and presentations remain server-side encrypted at rest, and public verification responses expose disclosed claims only.
 
 ## Roles
 - Issuer: Trusted academic issuer that signs SD-JWT credentials with an Ed25519 key.
@@ -50,7 +50,11 @@ Holder share links use opaque 256-bit random tokens. The database stores only th
 - Encrypted SD-JWT presentation.
 - Disclosed claim names for holder history.
 
-Public verification resolves `/verify/:token` through the API verifier endpoint. The API hashes the token, loads the encrypted presentation, enforces expiry/revocation/view limits, verifies issuer signature and holder binding, increments the view count, and returns only disclosed claims.
+Public verification resolves `/verify/:token` through `POST /credentials/verify`. The API hashes the token, loads the encrypted presentation, enforces missing/cancelled/expired/view-limit states, verifies issuer signature, disclosure digests, holder binding, expected audience, expected nonce, credential expiry when present, and revocation status, increments the view count, records a privacy-safe audit event, and returns only disclosed claims.
+
+Issuer revocation is exposed through `POST /credentials/:id/revoke` and requires the `ISSUER` role. Revoked credentials fail every future verification, including still-active share links.
+
+Verification audit records store result metadata, check outcomes, identifiers, token hash prefixes, and hashed request metadata only. They must not store disclosed claims, raw share tokens, credentials, presentations, emails, or holder names.
 
 ## Implementation Boundary
 All cryptographic behavior is isolated behind service boundaries. Routes call `CredentialService` or `PresentationService`; presentation creation and verification flow through `CredentialCryptoService`.
@@ -92,6 +96,16 @@ The API tests cover:
 - Encrypted presentation storage.
 - One-use view exhaustion.
 - Holder share cancellation.
+
+## Gate 4 Tests
+The API tests cover:
+
+- Valid unexpired active presentations.
+- Expired, cancelled, revoked, tampered, and unknown verification states.
+- Wrong audience and wrong nonce holder-binding failures.
+- Issuer credential revocation.
+- Verification endpoint rate limiting.
+- Privacy regression coverage for verification audit records.
 
 ## Non-Goals
 - This protocol does not claim zero-knowledge proofs.

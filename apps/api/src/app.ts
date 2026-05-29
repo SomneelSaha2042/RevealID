@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import type { AppConfig } from "./config.js";
@@ -10,6 +11,7 @@ import { AuthService } from "./auth/auth-service.js";
 import { TokenService } from "./auth/token-service.js";
 import { CredentialCryptoService } from "@revealid/crypto";
 import { CredentialService } from "./credentials/credential-service.js";
+import { CredentialStatusService } from "./credentials/credential-status-service.js";
 import { EnvelopeEncryptionService } from "./credentials/envelope-encryption-service.js";
 import { KeyManagementService } from "./credentials/key-management-service.js";
 import { PresentationService } from "./credentials/presentation-service.js";
@@ -62,6 +64,9 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     credentials: true
   });
   await app.register(cookie);
+  await app.register(rateLimit, {
+    global: false
+  });
   await app.register(swagger, {
     openapi: {
       info: {
@@ -81,6 +86,7 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     envelopeEncryption,
     getIssuerPrivateJwk(options.config)
   );
+  const credentialStatusService = new CredentialStatusService(options.prisma);
   const credentialService = new CredentialService(
     options.prisma,
     new CredentialCryptoService(),
@@ -94,6 +100,7 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     new CredentialCryptoService(),
     keyManagementService,
     envelopeEncryption,
+    credentialStatusService,
     options.config.WEB_ORIGIN
   );
   const authService = new AuthService(options.prisma, tokenService, keyManagementService);
@@ -102,6 +109,7 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
   await registerCredentialRoutes(app, {
     credentialService,
     presentationService,
+    credentialStatusService,
     keyManagementService,
     issuerId: options.config.ISSUER_ID,
     issuerName: options.config.ISSUER_NAME
@@ -125,7 +133,17 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     if (error.message === "Credential not found" || error.message === "Share not found") {
       return reply.code(404).send({ error: "Not found" });
     }
-    if (error.message === "Share expired" || error.message === "Share revoked" || error.message === "Share exhausted") {
+    if (
+      error.message === "Share expired" ||
+      error.message === "Share revoked" ||
+      error.message === "Share exhausted" ||
+      error.message === "Credential revoked" ||
+      error.message === "Verification expired" ||
+      error.message === "Verification cancelled" ||
+      error.message === "Verification exhausted" ||
+      error.message === "Verification revoked" ||
+      error.message === "Verification tampered"
+    ) {
       return reply.code(410).send({ error: error.message });
     }
     app.log.error(error);

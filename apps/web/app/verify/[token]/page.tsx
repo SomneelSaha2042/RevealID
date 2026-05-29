@@ -1,24 +1,79 @@
 import { AuthNav } from "../../auth/AuthNav";
 
-type VerifyResponse = {
-  status: "verified";
-  credentialType: string;
-  issuerName: string;
-  issuedAt: string;
-  audience: string;
-  expiresAt: string;
-  claims: Record<string, string | number>;
+type VerificationCheck = {
+  id: string;
+  label: string;
+  status: "passed" | "failed" | "skipped";
 };
+
+type VerifyResponse =
+  | {
+      status: "verified";
+      credentialType: string;
+      issuerName: string;
+      issuedAt: string;
+      audience: string;
+      expiresAt: string;
+      claims: Record<string, string | number>;
+      checks: VerificationCheck[];
+    }
+  | {
+      status: "invalid";
+      failureCode: "unknown" | "malformed" | "expired" | "cancelled" | "exhausted" | "revoked" | "tampered";
+      message: string;
+      checks: VerificationCheck[];
+    };
 
 type PageProps = {
   params: Promise<{ token: string }>;
 };
 
-async function verifyShare(token: string) {
+const failureCopy: Record<
+  Extract<VerifyResponse, { status: "invalid" }>["failureCode"] | "network",
+  { title: string; detail: string }
+> = {
+  expired: {
+    title: "Expired Link",
+    detail: "This verification link is past its allowed viewing window."
+  },
+  cancelled: {
+    title: "Cancelled Share",
+    detail: "The holder cancelled this share before it could be verified."
+  },
+  revoked: {
+    title: "Revoked Credential",
+    detail: "The issuer has revoked this credential, so it cannot be accepted."
+  },
+  tampered: {
+    title: "Tampered Presentation",
+    detail: "The presentation failed one or more cryptographic verification checks."
+  },
+  exhausted: {
+    title: "Verification Limit Reached",
+    detail: "This share link has already been viewed the maximum number of times."
+  },
+  malformed: {
+    title: "Malformed Token",
+    detail: "This verification token is not in a format RevealID can verify."
+  },
+  unknown: {
+    title: "Unknown Token",
+    detail: "No active share matches this verification token."
+  },
+  network: {
+    title: "Verification Unavailable",
+    detail: "RevealID could not reach the verifier service."
+  }
+};
+
+async function verifyShare(token: string): Promise<VerifyResponse | null> {
   let response: Response;
   try {
-    response = await fetch(`${process.env.API_BASE_URL ?? "http://localhost:4000"}/shares/verify/${token}`, {
-      cache: "no-store"
+    response = await fetch(`${process.env.API_BASE_URL ?? "http://localhost:4000"}/credentials/verify`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token })
     });
   } catch {
     return null;
@@ -31,9 +86,24 @@ async function verifyShare(token: string) {
   return (await response.json()) as VerifyResponse;
 }
 
+function CheckList({ checks }: { checks: VerificationCheck[] }) {
+  return (
+    <ul className="verification-checks">
+      {checks.map((check) => (
+        <li key={check.id} className={check.status}>
+          <span aria-hidden="true" />
+          <strong>{check.label}</strong>
+          <small>{check.status}</small>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default async function VerifySharePage({ params }: PageProps) {
   const { token } = await params;
   const verification = await verifyShare(token);
+  const failure = verification?.status === "invalid" ? failureCopy[verification.failureCode] : failureCopy.network;
 
   return (
     <main className="app-shell">
@@ -46,12 +116,10 @@ export default async function VerifySharePage({ params }: PageProps) {
           <p className="eyebrow">Verifier</p>
           <h1>Credential verification</h1>
         </div>
-        {!verification ? (
-          <p className="empty-state">This presentation is unavailable, expired, cancelled, or already fully used.</p>
-        ) : (
+        {verification?.status === "verified" ? (
           <section className="verification-panel">
             <div>
-              <p className="status verified">Verified holder-bound presentation</p>
+              <p className="status verified">Cryptographically Verified</p>
               <h2>{verification.credentialType}</h2>
               <p>{verification.issuerName}</p>
             </div>
@@ -65,9 +133,19 @@ export default async function VerifySharePage({ params }: PageProps) {
             </dl>
             <p>
               Issued {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(verification.issuedAt))}.
-              Expires{" "}
+              Share expires{" "}
               {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(verification.expiresAt))}.
             </p>
+            <CheckList checks={verification.checks} />
+          </section>
+        ) : (
+          <section className="verification-panel failure-panel">
+            <div>
+              <p className="status invalid">Verification Failed</p>
+              <h2>{failure.title}</h2>
+              <p>{verification?.status === "invalid" ? verification.message : failure.detail}</p>
+            </div>
+            {verification?.status === "invalid" ? <CheckList checks={verification.checks} /> : null}
           </section>
         )}
       </section>

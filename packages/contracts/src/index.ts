@@ -117,6 +117,50 @@ export const verifyShareResponseSchema = z.object({
   claims: z.record(academicClaimKeySchema, z.union([z.string(), z.number()]))
 });
 
+export const verificationFailureCodeSchema = z.enum([
+  "unknown",
+  "malformed",
+  "expired",
+  "cancelled",
+  "exhausted",
+  "revoked",
+  "tampered"
+]);
+export type VerificationFailureCode = z.infer<typeof verificationFailureCodeSchema>;
+
+export const verificationCheckSchema = z.object({
+  id: z.enum([
+    "share_token",
+    "share_state",
+    "presentation_decryption",
+    "issuer_signature",
+    "disclosure_digests",
+    "holder_binding",
+    "audience",
+    "nonce",
+    "credential_expiry",
+    "credential_status"
+  ]),
+  label: z.string(),
+  status: z.enum(["passed", "failed", "skipped"])
+});
+
+export const verifyCredentialRequestSchema = z.object({
+  token: z.string().min(1).max(512)
+});
+
+export const verifyCredentialResponseSchema = z.discriminatedUnion("status", [
+  verifyShareResponseSchema.extend({
+    checks: z.array(verificationCheckSchema)
+  }),
+  z.object({
+    status: z.literal("invalid"),
+    failureCode: verificationFailureCodeSchema,
+    message: z.string(),
+    checks: z.array(verificationCheckSchema)
+  })
+]);
+
 export const issuerMetadataResponseSchema = z.object({
   issuer: z.string().url(),
   name: z.string().min(1),
@@ -138,4 +182,7 @@ export type CreateShareResponse = z.infer<typeof createShareResponseSchema>;
 export type ShareHistoryItem = z.infer<typeof shareHistoryItemSchema>;
 export type ShareHistoryResponse = z.infer<typeof shareHistoryResponseSchema>;
 export type VerifyShareResponse = z.infer<typeof verifyShareResponseSchema>;
+export type VerificationCheck = z.infer<typeof verificationCheckSchema>;
+export type VerifyCredentialRequest = z.infer<typeof verifyCredentialRequestSchema>;
+export type VerifyCredentialResponse = z.infer<typeof verifyCredentialResponseSchema>;
 export type IssuerMetadataResponse = z.infer<typeof issuerMetadataResponseSchema>;
