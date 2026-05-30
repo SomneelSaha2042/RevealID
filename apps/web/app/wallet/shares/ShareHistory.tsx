@@ -40,36 +40,39 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
   }
 
   return (
-    <div className="credential-list">
-      {items.map((share) => {
-        const active = !share.revokedAt && new Date(share.expiresAt).getTime() > Date.now() && share.views < share.maxViews;
-        return (
-          <article className="credential-card share-history-card" key={share.id}>
-            <div>
-              <h2>{share.credentialType}</h2>
-              <p>{share.issuerName}</p>
-              <p>{share.audience}</p>
-              <p>Shared: {share.disclosedClaims.join(", ")}</p>
-            </div>
-            <div className="card-actions">
-              <span className={active ? "status-pill active" : "status-pill"}>
-                {active ? "Active" : "Closed"}
-              </span>
-              <span>
-                {share.views}/{share.maxViews} views
-              </span>
-              <time dateTime={share.expiresAt}>
-                {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(share.expiresAt))}
-              </time>
-              {active ? (
-                <button className="inline-action danger" onClick={() => cancelShare(share.id)} type="button">
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-          </article>
-        );
-      })}
-    </div>
+    <>
+      <p className="privacy-note">Share links are shown only when created. RevealID stores token hashes, not recoverable links.</p>
+      <div className="credential-list">
+        {items.map((share) => {
+          const active = !share.revokedAt && new Date(share.expiresAt).getTime() > Date.now() && share.views < share.maxViews;
+          return (
+            <article className="credential-card share-history-card" key={share.id}>
+              <div>
+                <h2>{share.credentialType}</h2>
+                <p>{share.issuerName}</p>
+                <p>{share.audience}</p>
+                <p>Shared: {share.disclosedClaims.join(", ")}</p>
+              </div>
+              <div className="card-actions">
+                <span className={active ? "status-pill active" : "status-pill"}>
+                  {active ? "Active" : "Closed"}
+                </span>
+                <span>
+                  {share.views}/{share.maxViews} views
+                </span>
+                <time dateTime={share.expiresAt}>
+                  {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(share.expiresAt))}
+                </time>
+                {active ? (
+                  <button className="inline-action danger" onClick={() => cancelShare(share.id)} type="button">
+                    Cancel
+                  </button>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }

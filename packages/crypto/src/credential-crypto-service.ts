@@ -35,6 +35,7 @@ export type IssueCredentialInput = {
   issuerId: string;
   vct: string;
   issuedAt: number;
+  expiresAt: number;
   claims: AcademicCredentialClaims;
   issuerPrivateJwk: JWK;
   issuerPublicJwk: JWK;
@@ -61,6 +62,7 @@ export type VerifyPresentationInput = {
 export type AcademicCredentialPayload = AcademicCredentialClaims & {
   iss: string;
   iat: number;
+  exp: number;
   vct: string;
   cnf: {
     jwk: JWK;
@@ -188,6 +190,7 @@ export class CredentialCryptoService {
     const payload: AcademicCredentialPayload = {
       iss: input.issuerId,
       iat: input.issuedAt,
+      exp: input.expiresAt,
       vct: input.vct,
       cnf: {
         jwk: input.holderPublicJwk

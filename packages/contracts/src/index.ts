@@ -56,6 +56,20 @@ export const walletCredentialListResponseSchema = z.object({
   credentials: z.array(walletCredentialSchema)
 });
 
+export const issuerCredentialSchema = z.object({
+  id: z.string().uuid(),
+  holderEmail: z.string().email(),
+  credentialType: z.string(),
+  issuerName: z.string(),
+  issuedAt: z.string().datetime(),
+  expiresAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable()
+});
+
+export const issuerCredentialListResponseSchema = z.object({
+  credentials: z.array(issuerCredentialSchema)
+});
+
 export const academicClaimKeySchema = z.enum(["degree", "graduationYear", "cgpa", "marks"]);
 export type AcademicClaimKey = z.infer<typeof academicClaimKeySchema>;
 
@@ -176,6 +190,8 @@ export type IssueCredentialRequest = z.infer<typeof issueCredentialRequestSchema
 export type IssueCredentialResponse = z.infer<typeof issueCredentialResponseSchema>;
 export type WalletCredential = z.infer<typeof walletCredentialSchema>;
 export type WalletCredentialListResponse = z.infer<typeof walletCredentialListResponseSchema>;
+export type IssuerCredential = z.infer<typeof issuerCredentialSchema>;
+export type IssuerCredentialListResponse = z.infer<typeof issuerCredentialListResponseSchema>;
 export type CredentialDetailResponse = z.infer<typeof credentialDetailResponseSchema>;
 export type CreateShareRequest = z.infer<typeof createShareRequestSchema>;
 export type CreateShareResponse = z.infer<typeof createShareResponseSchema>;

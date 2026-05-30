@@ -59,6 +59,7 @@ model Credential {
   issuerName            String
   encryptedSdJwt        Json
   issuedAt              DateTime
+  expiresAt             DateTime?
   revokedAt             DateTime?
   createdAt             DateTime @default(now())
   holder                User     @relation("HolderCredentials", fields: [holderId], references: [id], onDelete: Cascade)
@@ -68,6 +69,7 @@ model Credential {
 
   @@index([holderId, issuedAt])
   @@index([issuerId])
+  @@index([expiresAt])
   @@index([revokedAt])
 }
 

@@ -174,6 +174,7 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
               Expires {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(result.expiresAt))}. Max views:{" "}
               {result.maxViews}.
             </p>
+            <p className="privacy-note">Copy this link now. RevealID stores only a token hash, so the link cannot be shown again later.</p>
           </div>
         </section>
       ) : null}

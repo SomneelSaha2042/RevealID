@@ -4,6 +4,7 @@ import {
   createShareResponseSchema,
   credentialDetailResponseSchema,
   issueCredentialRequestSchema,
+  issuerCredentialListResponseSchema,
   shareHistoryResponseSchema,
   verifyCredentialRequestSchema,
   verifyCredentialResponseSchema,
@@ -117,6 +118,48 @@ export async function registerCredentialRoutes(
       }
       const credential = await options.credentialService.issueCredential(issuerId, input);
       return reply.code(201).send({ credential });
+    }
+  );
+
+  app.get(
+    "/issuer/credentials",
+    {
+      preHandler: app.requireIssuer,
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            required: ["credentials"],
+            properties: {
+              credentials: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["id", "holderEmail", "credentialType", "issuerName", "issuedAt", "expiresAt", "revokedAt"],
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    holderEmail: { type: "string", format: "email" },
+                    credentialType: { type: "string" },
+                    issuerName: { type: "string" },
+                    issuedAt: { type: "string", format: "date-time" },
+                    expiresAt: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] },
+                    revokedAt: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    async (request) => {
+      const issuerId = request.user?.id;
+      if (!issuerId) {
+        throw new Error("Unauthenticated");
+      }
+      return issuerCredentialListResponseSchema.parse({
+        credentials: await options.credentialService.listIssuerCredentials(issuerId)
+      });
     }
   );
 

@@ -1,11 +1,17 @@
 import { CredentialCryptoService } from "@revealid/crypto";
 import type { IssueCredentialInput } from "@revealid/crypto";
-import type { CredentialDetailResponse, IssueCredentialRequest, WalletCredential } from "@revealid/contracts";
+import type {
+  CredentialDetailResponse,
+  IssueCredentialRequest,
+  IssuerCredential,
+  WalletCredential
+} from "@revealid/contracts";
 import type { Prisma } from "../db.js";
 import { EnvelopeEncryptionService, type EncryptedEnvelope } from "./envelope-encryption-service.js";
 import { KeyManagementService } from "./key-management-service.js";
 
 const credentialType = "RevealIDAcademicCredential";
+const credentialValidityMs = 1000 * 60 * 60 * 24 * 365 * 5;
 export const credentialAad = (holderId: string, issuedAt: string) => `revealid:credential:${holderId}:${issuedAt}`;
 
 const disclosureFrame = {
@@ -37,10 +43,12 @@ export class CredentialService {
     const holderPublicJwk = await this.keys.getHolderPublicJwk(holder.id);
     const issuerKey = await this.keys.getIssuerSigningKey();
     const now = new Date();
+    const expiresAt = new Date(now.getTime() + credentialValidityMs);
     const sdJwt = await this.crypto.issueCredential({
       issuerId: this.issuerId,
       vct: credentialType,
       issuedAt: Math.floor(now.getTime() / 1000),
+      expiresAt: Math.floor(expiresAt.getTime() / 1000),
       claims: {
         degree: input.degree,
         graduationYear: input.graduationYear,
@@ -61,6 +69,7 @@ export class CredentialService {
         credentialType,
         issuerName: issuer.name || this.issuerName,
         issuedAt: now,
+        expiresAt,
         encryptedSdJwt: this.envelopeEncryption.encryptUtf8(sdJwt, credentialAad(holder.id, issuedAt))
       }
     });
@@ -85,6 +94,36 @@ export class CredentialService {
       credentialType: credential.credentialType,
       issuerName: credential.issuerName,
       issuedAt: credential.issuedAt.toISOString()
+    }));
+  }
+
+  async listIssuerCredentials(issuerId: string): Promise<IssuerCredential[]> {
+    const credentials = await this.prisma.credential.findMany({
+      where: { issuerId },
+      orderBy: { issuedAt: "desc" },
+      select: {
+        id: true,
+        credentialType: true,
+        issuerName: true,
+        issuedAt: true,
+        expiresAt: true,
+        revokedAt: true,
+        holder: {
+          select: {
+            email: true
+          }
+        }
+      }
+    });
+
+    return credentials.map((credential) => ({
+      id: credential.id,
+      holderEmail: credential.holder.email,
+      credentialType: credential.credentialType,
+      issuerName: credential.issuerName,
+      issuedAt: credential.issuedAt.toISOString(),
+      expiresAt: credential.expiresAt?.toISOString() ?? null,
+      revokedAt: credential.revokedAt?.toISOString() ?? null
     }));
   }
 

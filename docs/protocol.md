@@ -15,6 +15,7 @@ The signed SD-JWT VC payload contains non-selective protocol claims:
 
 - `iss`: issuer identifier.
 - `iat`: credential issuance time.
+- `exp`: credential expiry time.
 - `vct`: credential type identifier.
 - `cnf.jwk`: holder public JWK used for key binding.
 
@@ -50,9 +51,11 @@ Holder share links use opaque 256-bit random tokens. The database stores only th
 - Encrypted SD-JWT presentation.
 - Disclosed claim names for holder history.
 
-Public verification resolves `/verify/:token` through `POST /credentials/verify`. The API hashes the token, loads the encrypted presentation, enforces missing/cancelled/expired/view-limit states, verifies issuer signature, disclosure digests, holder binding, expected audience, expected nonce, credential expiry when present, and revocation status, increments the view count, records a privacy-safe audit event, and returns only disclosed claims.
+Public verification resolves `/verify/:token` through `POST /credentials/verify`. The API hashes the token, loads the encrypted presentation, enforces missing/cancelled/expired/view-limit states, verifies issuer signature, disclosure digests, holder binding, expected audience, expected nonce, credential expiry, and revocation status, increments the view count, records a privacy-safe audit event, and returns only disclosed claims.
 
 Issuer revocation is exposed through `POST /credentials/:id/revoke` and requires the `ISSUER` role. Revoked credentials fail every future verification, including still-active share links.
+
+Issuer credential management is exposed through `GET /issuer/credentials` for authenticated issuers. It returns issuer-owned credential metadata for revocation UI only; it does not return credential blobs, SD-JWTs, presentations, or undisclosed claims.
 
 Verification audit records store result metadata, check outcomes, identifiers, token hash prefixes, and hashed request metadata only. They must not store disclosed claims, raw share tokens, credentials, presentations, emails, or holder names.
 

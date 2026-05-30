@@ -40,6 +40,7 @@ const createCredential = (holderPublicJwk: JWK) => {
     issuerId,
     vct,
     issuedAt: Math.floor(Date.now() / 1000),
+    expiresAt: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365,
     claims: {
       degree: "BSc Computer Science",
       graduationYear: 2024,

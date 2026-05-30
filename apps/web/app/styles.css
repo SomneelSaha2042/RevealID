@@ -174,6 +174,15 @@ button:disabled {
   line-height: 1.1;
 }
 
+.compact-heading {
+  margin-bottom: 14px;
+}
+
+.compact-heading h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
 .form-panel {
   display: grid;
   gap: 18px;
@@ -313,6 +322,10 @@ select {
   gap: 18px;
 }
 
+.issuer-credentials {
+  margin-top: 28px;
+}
+
 .field-list {
   display: grid;
   gap: 10px;
@@ -388,6 +401,13 @@ select {
   overflow-wrap: anywhere;
   color: #28615e;
   font-weight: 750;
+}
+
+.privacy-note {
+  margin: 0 0 14px;
+  color: #43515f;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .status-pill {

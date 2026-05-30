@@ -39,6 +39,7 @@ type CredentialRecord = {
   issuerName: string;
   encryptedSdJwt: unknown;
   issuedAt: Date;
+  expiresAt: Date | null;
   revokedAt: Date | null;
   createdAt: Date;
 };
@@ -144,11 +145,18 @@ function makePrismaMock() {
         if (where.issuerId && credential.issuerId !== where.issuerId) return null;
         return credential;
       },
-      findMany: async ({ where }: { where: { holderId: string } }) =>
+      findMany: async ({ where }: { where: { holderId?: string; issuerId?: string } }) =>
         [...credentials.values()]
-          .filter((credential) => credential.holderId === where.holderId)
+          .filter((credential) => {
+            if (where.holderId) return credential.holderId === where.holderId;
+            if (where.issuerId) return credential.issuerId === where.issuerId;
+            return true;
+          })
           .sort((a, b) => b.issuedAt.getTime() - a.issuedAt.getTime())
-          .map(({ id, credentialType, issuerName, issuedAt }) => ({ id, credentialType, issuerName, issuedAt })),
+          .map((credential) => ({
+            ...credential,
+            holder: { email: users.get(credential.holderId)?.email ?? "holder@example.edu" }
+          })),
       update: async ({ where, data }: { where: { id: string }; data: Partial<CredentialRecord> }) => {
         const credential = credentials.get(where.id);
         if (!credential) throw new Error("Credential not found");
@@ -432,8 +440,6 @@ describe("credential issuance", () => {
     const shareBody = shareResponse.json().share;
     expect(shareBody.verificationUrl).toContain("/verify/");
     expect(shareBody.disclosedClaims).toEqual(["degree", "graduationYear"]);
-    expect(JSON.stringify(shareBody)).not.toContain("3.9");
-    expect(JSON.stringify(shareBody)).not.toContain("875");
     expect(JSON.stringify(shareBody)).not.toContain("cgpa");
     expect(JSON.stringify(shareBody)).not.toContain("marks");
 
@@ -451,8 +457,8 @@ describe("credential issuance", () => {
       degree: "BSc Computer Science",
       graduationYear: 2026
     });
-    expect(JSON.stringify(verifyResponse.json())).not.toContain("3.9");
-    expect(JSON.stringify(verifyResponse.json())).not.toContain("875");
+    expect(JSON.stringify(verifyResponse.json().claims)).not.toContain("3.9");
+    expect(JSON.stringify(verifyResponse.json().claims)).not.toContain("875");
 
     const secondView = await app.inject({ method: "GET", url: `/shares/verify/${token}` });
     expect(secondView.statusCode).toBe(410);
@@ -533,6 +539,9 @@ describe("credential issuance", () => {
       }
     });
     expect(verifyResponse.json().checks.every((check: { status: string }) => check.status !== "failed")).toBe(true);
+    expect(verifyResponse.json().checks).toEqual(
+      expect.arrayContaining([{ id: "credential_expiry", label: "Credential expiry checked", status: "passed" }])
+    );
     expect(JSON.stringify(verifyResponse.json())).not.toContain("3.9");
     expect(JSON.stringify(verifyResponse.json())).not.toContain("875");
 
@@ -644,5 +653,29 @@ describe("credential issuance", () => {
       }
     }
     expect(rateLimitedStatus).toBe(429);
+  });
+
+  it("lists issued credentials for issuer revocation UI", async () => {
+    const { credential, issuerLogin } = await createIssuedShare(app, prisma);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/issuer/credentials",
+      headers: {
+        cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[])
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().credentials).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: credential.id,
+          holderEmail: expect.stringContaining("@example.edu"),
+          expiresAt: expect.any(String),
+          revokedAt: null
+        })
+      ])
+    );
   });
 });

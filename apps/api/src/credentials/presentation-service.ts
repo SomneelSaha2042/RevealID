@@ -57,6 +57,7 @@ export class PresentationService {
         issuerName: true,
         encryptedSdJwt: true,
         issuedAt: true,
+        expiresAt: true,
         revokedAt: true
       }
     });
@@ -182,7 +183,7 @@ export class PresentationService {
         credential: {
           include: {
             holder: {
-              select: {
+            select: {
                 id: true
               }
             }
@@ -301,7 +302,22 @@ export class PresentationService {
         auditContext
       });
     }
-    markCheck(checks, "credential_expiry", typeof exp === "number" ? "passed" : "skipped");
+    if (share.credential.expiresAt && share.credential.expiresAt.getTime() <= Date.now()) {
+      return this.invalidVerification({
+        tokenHash,
+        checks: failCheck(checks, "credential_expiry"),
+        failureCode: "expired",
+        message: "The credential has expired.",
+        shareId: share.id,
+        credentialId: share.credentialId,
+        auditContext
+      });
+    }
+    markCheck(
+      checks,
+      "credential_expiry",
+      typeof exp === "number" || share.credential.expiresAt ? "passed" : "skipped"
+    );
 
     if (this.credentialStatus.isRevoked(share.credential)) {
       return this.invalidVerification({
