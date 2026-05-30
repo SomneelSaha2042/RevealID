@@ -131,7 +131,9 @@ export class PresentationService {
         credential: {
           select: {
             credentialType: true,
-            issuerName: true
+            issuerName: true,
+            expiresAt: true,
+            revokedAt: true
           }
         }
       }
@@ -147,6 +149,8 @@ export class PresentationService {
       maxViews: share.maxViews,
       views: share.views,
       revokedAt: share.revokedAt?.toISOString() ?? null,
+      credentialExpiresAt: share.credential.expiresAt?.toISOString() ?? null,
+      credentialRevokedAt: share.credential.revokedAt?.toISOString() ?? null,
       createdAt: share.createdAt.toISOString(),
       disclosedClaims: share.disclosedClaims as AcademicClaimKey[]
     }));

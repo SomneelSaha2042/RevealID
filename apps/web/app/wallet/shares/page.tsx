@@ -11,6 +11,8 @@ type ShareHistoryItem = {
   maxViews: number;
   views: number;
   revokedAt: string | null;
+  credentialExpiresAt: string | null;
+  credentialRevokedAt: string | null;
   disclosedClaims: string[];
 };
 

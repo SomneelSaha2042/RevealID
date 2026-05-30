@@ -632,7 +632,7 @@ describe("credential issuance", () => {
   });
 
   it("lets issuers revoke credentials and enforces rate limiting", async () => {
-    const { credential, issuerLogin, token } = await createIssuedShare(app, prisma);
+    const { credential, holderRegister, issuerLogin, token } = await createIssuedShare(app, prisma);
     const revokeResponse = await app.inject({
       method: "POST",
       url: `/credentials/${credential.id}/revoke`,
@@ -649,6 +649,18 @@ describe("credential issuance", () => {
 
     expect(revokeResponse.statusCode).toBe(200);
     expect(revokedVerifyResponse.json()).toMatchObject({ status: "invalid", failureCode: "revoked" });
+
+    const holderShares = await app.inject({
+      method: "GET",
+      url: "/shares",
+      headers: {
+        cookie: cookieHeader(holderRegister.headers["set-cookie"] as string[])
+      }
+    });
+    expect(holderShares.statusCode).toBe(200);
+    expect(holderShares.json().shares[0]).toMatchObject({
+      credentialRevokedAt: expect.any(String)
+    });
 
     let rateLimitedStatus = 0;
     for (let attempt = 0; attempt < 25; attempt += 1) {

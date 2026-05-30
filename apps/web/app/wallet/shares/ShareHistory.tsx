@@ -11,6 +11,8 @@ type ShareHistoryItem = {
   maxViews: number;
   views: number;
   revokedAt: string | null;
+  credentialExpiresAt: string | null;
+  credentialRevokedAt: string | null;
   disclosedClaims: string[];
 };
 
@@ -44,7 +46,27 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
       <p className="privacy-note">Share links are shown only when created. RevealID stores token hashes, not recoverable links.</p>
       <div className="credential-list">
         {items.map((share) => {
-          const active = !share.revokedAt && new Date(share.expiresAt).getTime() > Date.now() && share.views < share.maxViews;
+          const shareExpired = new Date(share.expiresAt).getTime() <= Date.now();
+          const credentialExpired = share.credentialExpiresAt
+            ? new Date(share.credentialExpiresAt).getTime() <= Date.now()
+            : false;
+          const active =
+            !share.revokedAt &&
+            !share.credentialRevokedAt &&
+            !shareExpired &&
+            !credentialExpired &&
+            share.views < share.maxViews;
+          const statusLabel = share.credentialRevokedAt
+            ? "Credential revoked"
+            : credentialExpired
+              ? "Credential expired"
+              : share.revokedAt
+                ? "Cancelled"
+                : shareExpired
+                  ? "Expired"
+                  : share.views >= share.maxViews
+                    ? "Used"
+                    : "Active";
           return (
             <article className="credential-card share-history-card" key={share.id}>
               <div>
@@ -52,10 +74,11 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
                 <p>{share.issuerName}</p>
                 <p>{share.audience}</p>
                 <p>Shared: {share.disclosedClaims.join(", ")}</p>
+                {share.credentialRevokedAt ? <p>Issuer revoked this credential.</p> : null}
               </div>
               <div className="card-actions">
                 <span className={active ? "status-pill active" : "status-pill"}>
-                  {active ? "Active" : "Closed"}
+                  {statusLabel}
                 </span>
                 <span>
                   {share.views}/{share.maxViews} views

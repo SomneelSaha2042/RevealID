@@ -115,6 +115,8 @@ export const shareHistoryItemSchema = z.object({
   maxViews: z.number().int(),
   views: z.number().int(),
   revokedAt: z.string().datetime().nullable(),
+  credentialExpiresAt: z.string().datetime().nullable(),
+  credentialRevokedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   disclosedClaims: z.array(academicClaimKeySchema)
 });
