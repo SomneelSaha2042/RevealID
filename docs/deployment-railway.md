@@ -1,10 +1,16 @@
 # Railway Deployment
 
-Gate 1 can deploy as three Railway services from the GitHub repository:
+RevealID is deployed as three Railway services from the GitHub repository:
 
 - `revealid-postgres`: Railway Postgres
 - `revealid-api`: Fastify API
 - `revealid-web`: Next.js web app
+
+Current production URLs:
+
+- Web: `https://revealidweb-production.up.railway.app/`
+- API: `https://revealidapi-production.up.railway.app/`
+- Swagger/OpenAPI: `https://revealidapi-production.up.railway.app/docs`
 
 ## 1. Create Project
 
@@ -57,12 +63,21 @@ The browser should continue to call `/api/*` on the web origin. Next.js rewrites
 After deploy:
 
 ```bash
-curl https://<api-service-domain>/health
-curl https://<web-service-domain>/api/health
+curl https://revealidapi-production.up.railway.app/health
+curl https://revealidweb-production.up.railway.app/api/health
 ```
 
 Swagger should render at:
 
 ```text
-https://<api-service-domain>/docs
+https://revealidapi-production.up.railway.app/docs
 ```
+
+Latest documented smoke check: May 30, 2026.
+
+| Check | Expected |
+| --- | --- |
+| `https://revealidapi-production.up.railway.app/health` | `200 OK` |
+| `https://revealidweb-production.up.railway.app/` | `200 OK` |
+| `https://revealidweb-production.up.railway.app/api/health` | `200 OK` |
+| `https://revealidapi-production.up.railway.app/docs` | `200 OK` |
