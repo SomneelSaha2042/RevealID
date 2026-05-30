@@ -22,11 +22,15 @@ export default async function Home() {
       </header>
       <section className="panel">
         <p className="eyebrow">RevealID</p>
-        <h1>Credential wallet foundation</h1>
+        <h1>Private credential sharing</h1>
         <p className="lede">
-          Gate 2 adds issuer-signed SD-JWT credentials, encrypted holder custody, public issuer keys, and a safe wallet
-          list that never renders undisclosed marks.
+          Issue holder-bound SD-JWT academic credentials, share only selected claims, and verify presentations without
+          exposing private CGPA or marks.
         </p>
+        <div className="demo-callout">
+          <strong>Demo path</strong>
+          <span>Issuer issues to holder@example.edu, holder shares degree and year, verifier sees only those fields.</span>
+        </div>
         <div className="actions">
           <a href="/login">Sign in</a>
           <a href="/register">Register holder</a>

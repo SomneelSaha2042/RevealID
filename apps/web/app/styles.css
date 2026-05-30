@@ -110,6 +110,20 @@ button:disabled {
   background: #2a9d63;
 }
 
+.demo-callout {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 24px;
+  border-left: 4px solid #1b4b48;
+  padding: 12px 0 12px 14px;
+  color: #43515f;
+  line-height: 1.5;
+}
+
+.demo-callout strong {
+  color: #17212b;
+}
+
 .app-shell {
   min-height: 100vh;
   background: #f5f7f8;
@@ -550,6 +564,10 @@ select {
 
   .panel {
     padding: 24px;
+  }
+
+  h1 {
+    font-size: 2.3rem;
   }
 
   .topbar,

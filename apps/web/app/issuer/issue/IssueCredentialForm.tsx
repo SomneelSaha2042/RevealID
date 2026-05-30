@@ -47,24 +47,24 @@ export function IssueCredentialForm() {
     <form action={issueCredential} className="form-panel">
       <label>
         Holder email
-        <input name="holderEmail" type="email" required placeholder="holder@example.edu" />
+        <input name="holderEmail" type="email" required defaultValue="holder@example.edu" />
       </label>
       <label>
         Degree
-        <input name="degree" required maxLength={160} placeholder="BSc Computer Science" />
+        <input name="degree" required maxLength={160} defaultValue="BSc Computer Science" />
       </label>
       <div className="form-grid">
         <label>
           Graduation year
-          <input name="graduationYear" type="number" min={1900} max={2200} required placeholder="2026" />
+          <input name="graduationYear" type="number" min={1900} max={2200} required defaultValue={2026} />
         </label>
         <label>
           CGPA
-          <input name="cgpa" type="number" min={0} max={5} step="0.01" required placeholder="3.90" />
+          <input name="cgpa" type="number" min={0} max={5} step="0.01" required defaultValue={4.72} />
         </label>
         <label>
           Marks
-          <input name="marks" type="number" min={0} max={10000} required placeholder="875" />
+          <input name="marks" type="number" min={0} max={10000} required defaultValue={9120} />
         </label>
       </div>
       <button type="submit" disabled={state === "submitting"}>

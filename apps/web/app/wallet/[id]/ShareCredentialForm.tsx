@@ -62,29 +62,34 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
     setMessage("");
     setResult(null);
 
-    const response = await fetch("/api/credentials/share", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-csrf-token": getCsrfToken() ?? ""
-      },
-      body: JSON.stringify({
-        credentialId: credential.id,
-        claims: selected,
-        audience: audience || undefined,
-        ttlMinutes,
-        maxViews
-      })
-    });
+    try {
+      const response = await fetch("/api/credentials/share", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-csrf-token": getCsrfToken() ?? ""
+        },
+        body: JSON.stringify({
+          credentialId: credential.id,
+          claims: selected,
+          audience: audience || undefined,
+          ttlMinutes,
+          maxViews
+        })
+      });
 
-    setSubmitting(false);
-    if (!response.ok) {
-      setMessage("Share link could not be created.");
-      return;
+      if (!response.ok) {
+        setMessage(response.status === 403 ? "Holder access is required." : "Share link could not be created.");
+        return;
+      }
+
+      const body = (await response.json()) as { share: ShareResult };
+      setResult(body.share);
+    } catch {
+      setMessage("Verifier link service is unavailable.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const body = (await response.json()) as { share: ShareResult };
-    setResult(body.share);
   }
 
   return (
@@ -149,6 +154,7 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
                 <strong>{credential.claims[claim]}</strong>
               </li>
             ))}
+            {selected.length === 0 ? <li>No claims selected.</li> : null}
           </ul>
         </div>
         <div>
@@ -160,6 +166,7 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
                 <strong>{credential.claims[claim]}</strong>
               </li>
             ))}
+            {privateClaims.length === 0 ? <li>No private claims remain.</li> : null}
           </ul>
         </div>
       </section>
