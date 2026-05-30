@@ -10,6 +10,7 @@
     "db:migrate": "corepack pnpm --filter @revealid/api prisma:migrate",
     "db:seed": "corepack pnpm --filter @revealid/api db:seed",
     "test": "corepack pnpm -r test",
+    "test:e2e": "playwright test",
     "test:crypto": "corepack pnpm --filter @revealid/crypto test",
     "lint": "corepack pnpm -r lint",
     "typecheck": "corepack pnpm -r typecheck",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.16.0",
     "eslint": "^9.16.0",
     "prettier": "^3.4.2",

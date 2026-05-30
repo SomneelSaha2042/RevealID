@@ -8,6 +8,8 @@ dist/
 out/
 .vite/
 coverage/
+playwright-report/
+test-results/
 .turbo/
 tsconfig.tsbuildinfo
 
