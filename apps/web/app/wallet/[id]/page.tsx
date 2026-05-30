@@ -7,6 +7,8 @@ type CredentialDetail = {
   credentialType: string;
   issuerName: string;
   issuedAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
   claims: {
     degree: string;
     graduationYear: number;
@@ -42,6 +44,8 @@ async function getCredential(id: string) {
 export default async function CredentialDetailPage({ params }: PageProps) {
   const { id } = await params;
   const credential = await getCredential(id);
+  const expired = credential?.expiresAt ? new Date(credential.expiresAt).getTime() <= Date.now() : false;
+  const closed = Boolean(credential?.revokedAt) || expired;
 
   return (
     <main className="app-shell">
@@ -62,12 +66,24 @@ export default async function CredentialDetailPage({ params }: PageProps) {
               <div>
                 <h2>{credential.credentialType}</h2>
                 <p>{credential.issuerName}</p>
+                {credential.expiresAt ? (
+                  <p>Expires {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.expiresAt))}</p>
+                ) : null}
               </div>
-              <time dateTime={credential.issuedAt}>
-                {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}
-              </time>
+              <div className="card-actions">
+                <span className={closed ? "status-pill" : "status-pill active"}>
+                  {credential.revokedAt ? "Revoked" : expired ? "Expired" : "Active"}
+                </span>
+                <time dateTime={credential.issuedAt}>
+                  {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}
+                </time>
+              </div>
             </article>
-            <ShareCredentialForm credential={credential} />
+            {closed ? (
+              <p className="empty-state">This credential can no longer be shared.</p>
+            ) : (
+              <ShareCredentialForm credential={credential} />
+            )}
           </>
         )}
       </section>

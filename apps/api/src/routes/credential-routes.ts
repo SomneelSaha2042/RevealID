@@ -177,12 +177,14 @@ export async function registerCredentialRoutes(
                 type: "array",
                 items: {
                   type: "object",
-                  required: ["id", "credentialType", "issuerName", "issuedAt"],
+                  required: ["id", "credentialType", "issuerName", "issuedAt", "expiresAt", "revokedAt"],
                   properties: {
                     id: { type: "string", format: "uuid" },
                     credentialType: { type: "string" },
                     issuerName: { type: "string" },
-                    issuedAt: { type: "string", format: "date-time" }
+                    issuedAt: { type: "string", format: "date-time" },
+                    expiresAt: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] },
+                    revokedAt: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] }
                   }
                 }
               }

@@ -153,10 +153,21 @@ function makePrismaMock() {
             return true;
           })
           .sort((a, b) => b.issuedAt.getTime() - a.issuedAt.getTime())
-          .map((credential) => ({
-            ...credential,
-            holder: { email: users.get(credential.holderId)?.email ?? "holder@example.edu" }
-          })),
+          .map((credential) =>
+            where.holderId
+              ? {
+                  id: credential.id,
+                  credentialType: credential.credentialType,
+                  issuerName: credential.issuerName,
+                  issuedAt: credential.issuedAt,
+                  expiresAt: credential.expiresAt,
+                  revokedAt: credential.revokedAt
+                }
+              : {
+                  ...credential,
+                  holder: { email: users.get(credential.holderId)?.email ?? "holder@example.edu" }
+                }
+          ),
       update: async ({ where, data }: { where: { id: string }; data: Partial<CredentialRecord> }) => {
         const credential = credentials.get(where.id);
         if (!credential) throw new Error("Credential not found");

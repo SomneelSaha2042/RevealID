@@ -49,7 +49,9 @@ export const walletCredentialSchema = z.object({
   id: z.string().uuid(),
   credentialType: z.string(),
   issuerName: z.string(),
-  issuedAt: z.string().datetime()
+  issuedAt: z.string().datetime(),
+  expiresAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable()
 });
 
 export const walletCredentialListResponseSchema = z.object({

@@ -85,7 +85,9 @@ export class CredentialService {
         id: true,
         credentialType: true,
         issuerName: true,
-        issuedAt: true
+        issuedAt: true,
+        expiresAt: true,
+        revokedAt: true
       }
     });
 
@@ -93,7 +95,9 @@ export class CredentialService {
       id: credential.id,
       credentialType: credential.credentialType,
       issuerName: credential.issuerName,
-      issuedAt: credential.issuedAt.toISOString()
+      issuedAt: credential.issuedAt.toISOString(),
+      expiresAt: credential.expiresAt?.toISOString() ?? null,
+      revokedAt: credential.revokedAt?.toISOString() ?? null
     }));
   }
 
@@ -135,6 +139,8 @@ export class CredentialService {
         credentialType: true,
         issuerName: true,
         issuedAt: true,
+        expiresAt: true,
+        revokedAt: true,
         encryptedSdJwt: true
       }
     });
@@ -153,6 +159,8 @@ export class CredentialService {
       credentialType: credential.credentialType,
       issuerName: credential.issuerName,
       issuedAt: credential.issuedAt.toISOString(),
+      expiresAt: credential.expiresAt?.toISOString() ?? null,
+      revokedAt: credential.revokedAt?.toISOString() ?? null,
       claims: {
         degree: String(claims.degree),
         graduationYear: Number(claims.graduationYear),
