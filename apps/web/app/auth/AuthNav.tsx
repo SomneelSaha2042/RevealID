@@ -1,5 +1,6 @@
 import { getCurrentUser } from "./session";
 import { LogoutButton } from "./LogoutButton";
+import { ButtonLink } from "../../components/ui/button";
 
 export async function AuthNav() {
   const user = await getCurrentUser();
@@ -16,8 +17,12 @@ export async function AuthNav() {
         </>
       ) : (
         <>
-          <a href="/login">Sign in</a>
-          <a href="/register">Register</a>
+          <ButtonLink href="/login" variant="ghost">
+            Sign in
+          </ButtonLink>
+          <ButtonLink href="/register" variant="secondary">
+            Register
+          </ButtonLink>
         </>
       )}
     </nav>

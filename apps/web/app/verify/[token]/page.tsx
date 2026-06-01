@@ -1,4 +1,6 @@
-import { AuthNav } from "../../auth/AuthNav";
+import { AppShell } from "../../../components/app-shell";
+import { Badge } from "../../../components/ui/badge";
+import { Card } from "../../../components/ui/card";
 
 type VerificationCheck = {
   id: string;
@@ -106,20 +108,16 @@ export default async function VerifySharePage({ params }: PageProps) {
   const failure = verification?.status === "invalid" ? failureCopy[verification.failureCode] : failureCopy.network;
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a href="/">RevealID</a>
-        <AuthNav />
-      </header>
-      <section className="workspace narrow-workspace">
-        <div className="section-heading">
-          <p className="eyebrow">Verifier</p>
-          <h1>Credential verification</h1>
-        </div>
+    <AppShell
+      description="Public verification report for a holder-generated selective disclosure presentation."
+      eyebrow="Verifier"
+      narrow
+      title="Credential verification"
+    >
         {verification?.status === "verified" ? (
-          <section className="verification-panel">
+          <Card className="verification-panel">
             <div>
-              <p className="status verified">Cryptographically Verified</p>
+              <Badge tone="success">Cryptographically Verified</Badge>
               <h2>{verification.credentialType}</h2>
               <p>{verification.issuerName}</p>
             </div>
@@ -137,18 +135,17 @@ export default async function VerifySharePage({ params }: PageProps) {
               {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(verification.expiresAt))}.
             </p>
             <CheckList checks={verification.checks} />
-          </section>
+          </Card>
         ) : (
-          <section className="verification-panel failure-panel">
+          <Card className="verification-panel failure-panel">
             <div>
-              <p className="status invalid">Verification Failed</p>
+              <Badge tone="danger">Verification Failed</Badge>
               <h2>{failure.title}</h2>
               <p>{verification?.status === "invalid" ? verification.message : failure.detail}</p>
             </div>
             {verification?.status === "invalid" ? <CheckList checks={verification.checks} /> : null}
-          </section>
+          </Card>
         )}
-      </section>
-    </main>
+    </AppShell>
   );
 }

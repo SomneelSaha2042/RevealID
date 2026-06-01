@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Field, Input } from "../../../components/ui/form";
 
 type FormState = "idle" | "submitting" | "success" | "error";
 
@@ -44,33 +47,41 @@ export function IssueCredentialForm() {
   }
 
   return (
-    <form action={issueCredential} className="form-panel">
-      <label>
-        Holder email
-        <input name="holderEmail" type="email" required defaultValue="holder@example.edu" />
-      </label>
-      <label>
-        Degree
-        <input name="degree" required maxLength={160} defaultValue="BSc Computer Science" />
-      </label>
-      <div className="form-grid">
-        <label>
-          Graduation year
-          <input name="graduationYear" type="number" min={1900} max={2200} required defaultValue={2026} />
-        </label>
-        <label>
-          CGPA
-          <input name="cgpa" type="number" min={0} max={5} step="0.01" required defaultValue={4.72} />
-        </label>
-        <label>
-          Marks
-          <input name="marks" type="number" min={0} max={10000} required defaultValue={9120} />
-        </label>
-      </div>
-      <button type="submit" disabled={state === "submitting"}>
-        {state === "submitting" ? "Issuing..." : "Issue credential"}
-      </button>
-      {message ? <p className={`form-message ${state}`}>{message}</p> : null}
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle>Academic credential</CardTitle>
+        <CardDescription>Issued claims are signed as selectively disclosable SD-JWT fields.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form action={issueCredential} className="form-panel">
+          <Field>
+            Holder email
+            <Input name="holderEmail" type="email" required defaultValue="holder@example.edu" />
+          </Field>
+          <Field>
+            Degree
+            <Input name="degree" required maxLength={160} defaultValue="BSc Computer Science" />
+          </Field>
+          <div className="form-grid">
+            <Field>
+              Graduation year
+              <Input name="graduationYear" type="number" min={1900} max={2200} required defaultValue={2026} />
+            </Field>
+            <Field>
+              CGPA
+              <Input name="cgpa" type="number" min={0} max={5} step="0.01" required defaultValue={4.72} />
+            </Field>
+            <Field>
+              Marks
+              <Input name="marks" type="number" min={0} max={10000} required defaultValue={9120} />
+            </Field>
+          </div>
+          <Button type="submit" disabled={state === "submitting"}>
+            {state === "submitting" ? "Issuing..." : "Issue credential"}
+          </Button>
+          {message ? <p className={`form-message ${state}`}>{message}</p> : null}
+        </form>
+      </CardContent>
+    </Card>
   );
 }

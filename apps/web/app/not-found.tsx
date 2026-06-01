@@ -1,4 +1,6 @@
 import { AuthNav } from "./auth/AuthNav";
+import { ButtonLink } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 
 export default function NotFound() {
   return (
@@ -8,14 +10,14 @@ export default function NotFound() {
         <AuthNav />
       </header>
       <section className="workspace narrow-workspace">
-        <div className="verification-panel failure-panel">
+        <Card className="verification-panel failure-panel">
           <p className="status invalid">Not Found</p>
           <h1>Credential view unavailable</h1>
           <p>The link may be incomplete, expired, or unavailable to this session.</p>
-          <a className="inline-action" href="/">
+          <ButtonLink href="/" variant="secondary">
             Return home
-          </a>
-        </div>
+          </ButtonLink>
+        </Card>
       </section>
     </main>
   );

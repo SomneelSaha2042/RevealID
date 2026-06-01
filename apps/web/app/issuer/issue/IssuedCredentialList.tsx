@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { EmptyState } from "../../../components/empty-state";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
 
 type IssuedCredential = {
   id: string;
@@ -42,7 +46,7 @@ export function IssuedCredentialList({ credentials }: { credentials: IssuedCrede
   }
 
   if (items.length === 0) {
-    return <p className="empty-state">No credentials issued from this account.</p>;
+    return <EmptyState>No credentials issued from this account.</EmptyState>;
   }
 
   return (
@@ -50,7 +54,7 @@ export function IssuedCredentialList({ credentials }: { credentials: IssuedCrede
       {items.map((credential) => {
         const revoked = Boolean(credential.revokedAt);
         return (
-          <article className="credential-card share-history-card" key={credential.id}>
+          <Card className="credential-card share-history-card" key={credential.id}>
             <div>
               <h2>{credential.credentialType}</h2>
               <p>{credential.holderEmail}</p>
@@ -62,14 +66,14 @@ export function IssuedCredentialList({ credentials }: { credentials: IssuedCrede
               </p>
             </div>
             <div className="card-actions">
-              <span className={revoked ? "status-pill" : "status-pill active"}>{revoked ? "Revoked" : "Active"}</span>
+              <Badge tone={revoked ? "neutral" : "success"}>{revoked ? "Revoked" : "Active"}</Badge>
               {!revoked ? (
-                <button className="inline-action danger" onClick={() => revokeCredential(credential.id)} type="button">
+                <Button onClick={() => revokeCredential(credential.id)} type="button" variant="danger">
                   Revoke
-                </button>
+                </Button>
               ) : null}
             </div>
-          </article>
+          </Card>
         );
       })}
       {message ? <p className="form-message error">{message}</p> : null}

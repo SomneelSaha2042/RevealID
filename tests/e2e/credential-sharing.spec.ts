@@ -51,7 +51,6 @@ async function createSelectiveShare(page: Page, holderEmail: string) {
   await expect(page.getByLabel("CGPA")).not.toBeChecked();
   await expect(page.getByLabel("Marks")).not.toBeChecked();
 
-  await page.getByLabel("Verifier audience").fill("E2E Verifier");
   await page.getByRole("button", { name: "Create secure share" }).click();
   await expect(page.getByRole("heading", { name: "Verification link" })).toBeVisible();
 
@@ -110,7 +109,7 @@ test("security failure path shows revoked credentials as invalid", async ({ page
 
   await signIn(page, issuerEmail, issuerPassword);
   await expect(page).toHaveURL(/\/issuer\/issue/);
-  const issuedCredential = page.locator("article", { hasText: holderEmail }).first();
+  const issuedCredential = page.locator(".credential-card", { hasText: holderEmail }).first();
   await expect(issuedCredential).toBeVisible();
   await issuedCredential.getByRole("button", { name: "Revoke" }).click();
   await expect(issuedCredential.getByText("Revoked")).toBeVisible();

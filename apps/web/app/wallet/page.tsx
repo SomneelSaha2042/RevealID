@@ -1,5 +1,9 @@
 import { cookies } from "next/headers";
-import { AuthNav } from "../auth/AuthNav";
+import { AppShell } from "../../components/app-shell";
+import { Badge } from "../../components/ui/badge";
+import { ButtonLink } from "../../components/ui/button";
+import { Card } from "../../components/ui/card";
+import { EmptyState } from "../../components/empty-state";
 
 type WalletCredential = {
   id: string;
@@ -36,25 +40,20 @@ export default async function WalletPage() {
   const { credentials, authenticated } = await getCredentials();
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a href="/">RevealID</a>
-        <AuthNav />
-      </header>
-      <section className="workspace">
-        <div className="section-heading">
-          <p className="eyebrow">Holder</p>
-          <h1>Wallet</h1>
-        </div>
-        {!authenticated ? <p className="empty-state">Sign in as a holder to view wallet credentials.</p> : null}
-        {authenticated && credentials.length === 0 ? <p className="empty-state">No credentials in this wallet.</p> : null}
+    <AppShell
+      description="Manage credentials you own and create selective disclosure links from active credentials."
+      eyebrow="Holder"
+      title="Wallet"
+    >
+        {!authenticated ? <EmptyState>Sign in as a holder to view wallet credentials.</EmptyState> : null}
+        {authenticated && credentials.length === 0 ? <EmptyState>No credentials in this wallet.</EmptyState> : null}
         {credentials.length > 0 ? (
           <div className="credential-list">
             {credentials.map((credential) => {
               const expired = credential.expiresAt ? new Date(credential.expiresAt).getTime() <= Date.now() : false;
               const closed = Boolean(credential.revokedAt) || expired;
               return (
-                <article className="credential-card" key={credential.id}>
+                <Card className="credential-card" key={credential.id}>
                   <div>
                     <h2>{credential.credentialType}</h2>
                     <p>{credential.issuerName}</p>
@@ -63,26 +62,25 @@ export default async function WalletPage() {
                     ) : null}
                   </div>
                   <div className="card-actions">
-                    <span className={closed ? "status-pill" : "status-pill active"}>
+                    <Badge tone={closed ? "neutral" : "success"}>
                       {credential.revokedAt ? "Revoked" : expired ? "Expired" : "Active"}
-                    </span>
+                    </Badge>
                     <time dateTime={credential.issuedAt}>
                       {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}
                     </time>
                     {closed ? (
                       <span className="inline-action disabled-action">Share unavailable</span>
                     ) : (
-                      <a className="inline-action" href={`/wallet/${credential.id}`}>
+                      <ButtonLink href={`/wallet/${credential.id}`} variant="secondary">
                         Share
-                      </a>
+                      </ButtonLink>
                     )}
                   </div>
-                </article>
+                </Card>
               );
             })}
           </div>
         ) : null}
-      </section>
-    </main>
+    </AppShell>
   );
 }

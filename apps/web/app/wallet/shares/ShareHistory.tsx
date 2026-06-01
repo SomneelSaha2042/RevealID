@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { EmptyState } from "../../../components/empty-state";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
 
 type ShareHistoryItem = {
   id: string;
@@ -38,7 +42,7 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
   }
 
   if (items.length === 0) {
-    return <p className="empty-state">No share links have been created.</p>;
+    return <EmptyState>No share links have been created.</EmptyState>;
   }
 
   return (
@@ -68,7 +72,7 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
                     ? "Used"
                     : "Active";
           return (
-            <article className="credential-card share-history-card" key={share.id}>
+            <Card className="credential-card share-history-card" key={share.id}>
               <div>
                 <h2>{share.credentialType}</h2>
                 <p>{share.issuerName}</p>
@@ -77,9 +81,9 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
                 {share.credentialRevokedAt ? <p>Issuer revoked this credential.</p> : null}
               </div>
               <div className="card-actions">
-                <span className={active ? "status-pill active" : "status-pill"}>
+                <Badge tone={active ? "success" : "neutral"}>
                   {statusLabel}
-                </span>
+                </Badge>
                 <span>
                   {share.views}/{share.maxViews} views
                 </span>
@@ -87,12 +91,12 @@ export function ShareHistory({ shares }: { shares: ShareHistoryItem[] }) {
                   {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(share.expiresAt))}
                 </time>
                 {active ? (
-                  <button className="inline-action danger" onClick={() => cancelShare(share.id)} type="button">
+                  <Button onClick={() => cancelShare(share.id)} type="button" variant="danger">
                     Cancel
-                  </button>
+                  </Button>
                 ) : null}
               </div>
-            </article>
+            </Card>
           );
         })}
       </div>

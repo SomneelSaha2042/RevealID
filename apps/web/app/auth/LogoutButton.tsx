@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "../../components/ui/button";
 
 const getCsrfToken = () =>
   document.cookie
@@ -24,8 +25,8 @@ export function LogoutButton() {
   }
 
   return (
-    <button className="text-button" disabled={isSubmitting} type="button" onClick={logout}>
+    <Button className="text-button" disabled={isSubmitting} type="button" onClick={logout} variant="ghost">
       {isSubmitting ? "Signing out" : "Sign out"}
-    </button>
+    </Button>
   );
 }

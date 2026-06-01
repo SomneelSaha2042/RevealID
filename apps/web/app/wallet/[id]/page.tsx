@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
-import { AuthNav } from "../../auth/AuthNav";
+import { AppShell } from "../../../components/app-shell";
+import { EmptyState } from "../../../components/empty-state";
+import { Badge } from "../../../components/ui/badge";
+import { Card } from "../../../components/ui/card";
 import { ShareCredentialForm } from "./ShareCredentialForm";
 
 type CredentialDetail = {
@@ -48,21 +51,16 @@ export default async function CredentialDetailPage({ params }: PageProps) {
   const closed = Boolean(credential?.revokedAt) || expired;
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a href="/">RevealID</a>
-        <AuthNav />
-      </header>
-      <section className="workspace">
-        <div className="section-heading">
-          <p className="eyebrow">Holder</p>
-          <h1>Share credential</h1>
-        </div>
+    <AppShell
+      description="Choose exactly which claims to disclose and generate a holder-bound verification link."
+      eyebrow="Holder"
+      title="Share credential"
+    >
         {!credential ? (
-          <p className="empty-state">Credential not found or sign-in expired.</p>
+          <EmptyState>Credential not found or sign-in expired.</EmptyState>
         ) : (
           <>
-            <article className="credential-card detail-card">
+            <Card className="credential-card detail-card">
               <div>
                 <h2>{credential.credentialType}</h2>
                 <p>{credential.issuerName}</p>
@@ -71,22 +69,21 @@ export default async function CredentialDetailPage({ params }: PageProps) {
                 ) : null}
               </div>
               <div className="card-actions">
-                <span className={closed ? "status-pill" : "status-pill active"}>
+                <Badge tone={closed ? "neutral" : "success"}>
                   {credential.revokedAt ? "Revoked" : expired ? "Expired" : "Active"}
-                </span>
+                </Badge>
                 <time dateTime={credential.issuedAt}>
                   {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}
                 </time>
               </div>
-            </article>
+            </Card>
             {closed ? (
-              <p className="empty-state">This credential can no longer be shared.</p>
+              <EmptyState>This credential can no longer be shared.</EmptyState>
             ) : (
               <ShareCredentialForm credential={credential} />
             )}
           </>
         )}
-      </section>
-    </main>
+    </AppShell>
   );
 }

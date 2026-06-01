@@ -30,3 +30,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Personal learning notes
+REVEALID_LEARNING_NOTES.md

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { AuthNav } from "../../auth/AuthNav";
+import { AppShell } from "../../../components/app-shell";
+import { EmptyState } from "../../../components/empty-state";
 import { ShareHistory } from "./ShareHistory";
 
 type ShareHistoryItem = {
@@ -42,18 +43,12 @@ export default async function ShareHistoryPage() {
   const { shares, authenticated } = await getShares();
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a href="/">RevealID</a>
-        <AuthNav />
-      </header>
-      <section className="workspace">
-        <div className="section-heading">
-          <p className="eyebrow">Holder</p>
-          <h1>Share history</h1>
-        </div>
-        {!authenticated ? <p className="empty-state">Sign in as a holder to manage share links.</p> : <ShareHistory shares={shares} />}
-      </section>
-    </main>
+    <AppShell
+      description="Review active, expired, cancelled, and used shares without exposing raw share tokens."
+      eyebrow="Holder"
+      title="Share history"
+    >
+      {!authenticated ? <EmptyState>Sign in as a holder to manage share links.</EmptyState> : <ShareHistory shares={shares} />}
+    </AppShell>
   );
 }

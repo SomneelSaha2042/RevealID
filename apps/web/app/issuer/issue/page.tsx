@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { AuthNav } from "../../auth/AuthNav";
+import { AppShell } from "../../../components/app-shell";
+import { EmptyState } from "../../../components/empty-state";
 import { IssuedCredentialList } from "./IssuedCredentialList";
 import { IssueCredentialForm } from "./IssueCredentialForm";
 
@@ -38,29 +39,19 @@ export default async function IssueCredentialPage() {
   const { credentials, authenticated } = await getIssuedCredentials();
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a href="/">RevealID</a>
-        <AuthNav />
-      </header>
-      <section className="workspace">
-        <div className="section-heading">
-          <p className="eyebrow">Issuer</p>
-          <h1>Issue credential</h1>
+    <AppShell
+      description="Create signed academic credentials and revoke issued credentials when their status changes."
+      eyebrow="Issuer"
+      title="Issue credential"
+    >
+      <IssueCredentialForm />
+      <section className="issuer-credentials">
+        <div className="section-heading compact-heading">
+          <p className="eyebrow">Issuer controls</p>
+          <h2>Issued credentials</h2>
         </div>
-        <IssueCredentialForm />
-        <section className="issuer-credentials">
-          <div className="section-heading compact-heading">
-            <p className="eyebrow">Issuer</p>
-            <h2>Issued credentials</h2>
-          </div>
-          {!authenticated ? (
-            <p className="empty-state">Sign in as an issuer to manage issued credentials.</p>
-          ) : (
-            <IssuedCredentialList credentials={credentials} />
-          )}
-        </section>
+        {!authenticated ? <EmptyState>Sign in as an issuer to manage issued credentials.</EmptyState> : <IssuedCredentialList credentials={credentials} />}
       </section>
-    </main>
+    </AppShell>
   );
 }

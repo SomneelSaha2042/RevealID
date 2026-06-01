@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Field, Input } from "../../components/ui/form";
 
 type FormState = "idle" | "submitting" | "error";
 
@@ -35,19 +38,23 @@ export function LoginForm() {
   }
 
   return (
-    <form action={login} className="form-panel auth-form">
-      <label>
-        Email
-        <input name="email" type="email" required autoComplete="email" />
-      </label>
-      <label>
-        Password
-        <input name="password" type="password" required autoComplete="current-password" />
-      </label>
-      <button type="submit" disabled={state === "submitting"}>
-        {state === "submitting" ? "Signing in..." : "Sign in"}
-      </button>
-      {message ? <p className="form-message error">{message}</p> : null}
-    </form>
+    <Card>
+      <CardContent>
+        <form action={login} className="form-panel auth-form">
+          <Field>
+            Email
+            <Input name="email" type="email" required autoComplete="email" />
+          </Field>
+          <Field>
+            Password
+            <Input name="password" type="password" required autoComplete="current-password" />
+          </Field>
+          <Button type="submit" disabled={state === "submitting"}>
+            {state === "submitting" ? "Signing in..." : "Sign in"}
+          </Button>
+          {message ? <p className="form-message error">{message}</p> : null}
+        </form>
+      </CardContent>
+    </Card>
   );
 }
