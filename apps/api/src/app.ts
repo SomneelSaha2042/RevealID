@@ -15,7 +15,13 @@ import { CredentialStatusService } from "./credentials/credential-status-service
 import { EnvelopeEncryptionService } from "./credentials/envelope-encryption-service.js";
 import { KeyManagementService } from "./credentials/key-management-service.js";
 import { PresentationService } from "./credentials/presentation-service.js";
+import { AcademicClaimNormalizer } from "./imports/academic-claim-normalizer.js";
+import { OpenCertsIssuerPolicy } from "./imports/issuer-policy.js";
 import { OpenCertsImportService } from "./imports/opencerts-import-service.js";
+import {
+  SourceCredentialVerificationService,
+  type SourceCredentialVerifier
+} from "./imports/source-credential-verification-service.js";
 import { authPlugin } from "./http/auth-plugin.js";
 import { registerAuthRoutes } from "./routes/auth-routes.js";
 import { registerCredentialRoutes } from "./routes/credential-routes.js";
@@ -42,7 +48,11 @@ const getIssuerPrivateJwk = (config: AppConfig) => {
   return undefined;
 };
 
-export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
+export async function buildApp(options: {
+  config: AppConfig;
+  prisma: Prisma;
+  sourceCredentialVerifier?: SourceCredentialVerifier;
+}) {
   const app = fastify({
     logger: {
       level: options.config.NODE_ENV === "test" ? "silent" : "info",
@@ -105,12 +115,24 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     credentialStatusService,
     options.config.WEB_ORIGIN
   );
-  const openCertsImportService = new OpenCertsImportService(options.prisma as never, {
-    defaultVerificationMode: options.config.OPENCERTS_VERIFICATION_MODE,
-    defaultIssuerPolicyMode: options.config.OPENCERTS_ISSUER_POLICY_MODE,
-    maxUploadBytes: options.config.MAX_OPENCERTS_UPLOAD_BYTES,
-    retainSourceByDefault: options.config.OPENCERTS_RETAIN_SOURCE
-  });
+  const sourceCredentialVerifier =
+    options.sourceCredentialVerifier ??
+    new SourceCredentialVerificationService({
+      apiVerifyUrl: options.config.OPENCERTS_API_VERIFY_URL,
+      rpcProviderUrl: options.config.OPENCERTS_RPC_PROVIDER_URL
+    });
+  const openCertsImportService = new OpenCertsImportService(
+    options.prisma as never,
+    sourceCredentialVerifier,
+    new AcademicClaimNormalizer(),
+    new OpenCertsIssuerPolicy(),
+    {
+      defaultVerificationMode: options.config.OPENCERTS_VERIFICATION_MODE,
+      defaultIssuerPolicyMode: options.config.OPENCERTS_ISSUER_POLICY_MODE,
+      maxUploadBytes: options.config.MAX_OPENCERTS_UPLOAD_BYTES,
+      retainSourceByDefault: options.config.OPENCERTS_RETAIN_SOURCE
+    }
+  );
   const authService = new AuthService(options.prisma, tokenService, keyManagementService);
   await app.register(authPlugin, { prisma: options.prisma, tokenService });
   await registerAuthRoutes(app, { authService, cookieSecure: options.config.COOKIE_SECURE });

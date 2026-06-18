@@ -118,11 +118,13 @@ These are installed with `pnpm install` and should be managed through `package.j
 | Package | Purpose | Phase |
 | --- | --- | --- |
 | `@trustvc/trustvc` | Local OpenCerts/OpenAttestation-compatible source verification through `verifyDocument` | Phase 2 |
+| `ethers@^5.8.0` | Required peer for TrustVC/OpenAttestation verifier providers | Phase 2 |
 
 Add the package when implementation reaches Phase 2:
 
 ```bash
 pnpm --filter @revealid/api add @trustvc/trustvc
+pnpm --filter @revealid/api add ethers@^5.8.0
 ```
 
 Do not call TrustVC directly from routes. Wrap it behind `SourceCredentialVerificationService`.
@@ -254,6 +256,7 @@ VERIFY_RATE_LIMIT_WINDOW=1 minute
 OPENCERTS_VERIFICATION_MODE=LOCAL_TRUSTVC
 OPENCERTS_ISSUER_POLICY_MODE=DEMO
 OPENCERTS_API_VERIFY_URL=https://api.opencerts.io/verify
+OPENCERTS_RPC_PROVIDER_URL=
 MAX_OPENCERTS_UPLOAD_BYTES=1048576
 OPENCERTS_RETAIN_SOURCE=false
 OPENCERTS_SOURCE_RETENTION_DAYS=31

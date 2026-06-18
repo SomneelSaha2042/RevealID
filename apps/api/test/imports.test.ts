@@ -1,9 +1,17 @@
 import argon2 from "argon2";
+import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bridgeDisclaimer } from "@revealid/contracts";
 import { buildApp } from "../src/app.js";
 import type { AppConfig } from "../src/config.js";
+import { AcademicClaimNormalizer } from "../src/imports/academic-claim-normalizer.js";
+import { IssuerPolicyError, OpenCertsIssuerPolicy } from "../src/imports/issuer-policy.js";
+import {
+  summarizeFragments,
+  type SourceCredentialVerificationResult,
+  type SourceCredentialVerifier
+} from "../src/imports/source-credential-verification-service.js";
 
 type UserRecord = {
   id: string;
@@ -39,8 +47,12 @@ type SourceCredentialImportRecord = {
   sourceFileHash: string;
   verificationMode: string;
   issuerPolicyMode: string;
+  verificationSummary?: unknown;
+  normalizedClaims?: unknown;
   hiddenByDefault: string[];
-  status: "PENDING_VERIFICATION";
+  status: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
+  failureCode?: string;
+  verifiedAt?: Date;
   createdAt: Date;
 };
 
@@ -127,6 +139,7 @@ const config: AppConfig = {
   OPENCERTS_VERIFICATION_MODE: "LOCAL_TRUSTVC",
   OPENCERTS_ISSUER_POLICY_MODE: "DEMO",
   OPENCERTS_API_VERIFY_URL: "https://api.opencerts.io/verify",
+  OPENCERTS_RPC_PROVIDER_URL: undefined,
   MAX_OPENCERTS_UPLOAD_BYTES: 1_048_576,
   OPENCERTS_RETAIN_SOURCE: false,
   OPENCERTS_SOURCE_RETENTION_DAYS: 31,
@@ -135,20 +148,34 @@ const config: AppConfig = {
 
 const cookieHeader = (setCookie: string[]) => setCookie.map((value) => value.split(";")[0]).join("; ");
 
-const demoDocument = {
-  version: "https://schema.openattestation.com/2.0/schema.json",
-  data: {
-    name: "salt:string:Your Name",
-    course: "salt:string:OpenCerts Demo"
-  }
+const sepoliaFixture = JSON.parse(
+  readFileSync(new URL("../../../samples/opencerts/sepolia.opencert", import.meta.url), "utf8")
+) as Record<string, unknown>;
+
+const validVerification: SourceCredentialVerificationResult = {
+  sourceType: "OPENCERTS_V2",
+  summary: {
+    all: true,
+    documentIntegrity: true,
+    documentStatus: true,
+    issuerIdentity: true
+  },
+  fragments: [],
+  accepted: true
 };
 
 describe("OpenCerts import boundary", () => {
   let prisma: ReturnType<typeof makePrismaMock>;
   let app: Awaited<ReturnType<typeof buildApp>>;
+  let verificationResult: SourceCredentialVerificationResult;
+  let sourceCredentialVerifier: SourceCredentialVerifier;
 
   beforeEach(async () => {
     prisma = makePrismaMock();
+    verificationResult = validVerification;
+    sourceCredentialVerifier = {
+      verify: async () => verificationResult
+    };
     prisma.users.set("22222222-2222-4222-8222-222222222222", {
       id: "22222222-2222-4222-8222-222222222222",
       email: "issuer@demo-university.edu",
@@ -156,7 +183,7 @@ describe("OpenCerts import boundary", () => {
       role: "ISSUER",
       passwordHash: await argon2.hash("DemoIssuerPass123!", { type: argon2.argon2id })
     });
-    app = await buildApp({ config, prisma: prisma as never });
+    app = await buildApp({ config, prisma: prisma as never, sourceCredentialVerifier });
   });
 
   afterEach(async () => {
@@ -167,7 +194,7 @@ describe("OpenCerts import boundary", () => {
     const unauthenticated = await app.inject({
       method: "POST",
       url: "/imports/opencerts",
-      payload: { fileName: "sepolia.opencert", document: demoDocument }
+      payload: { fileName: "sepolia.opencert", document: sepoliaFixture }
     });
     expect(unauthenticated.statusCode).toBe(401);
 
@@ -180,7 +207,7 @@ describe("OpenCerts import boundary", () => {
       method: "POST",
       url: "/imports/opencerts",
       headers: { cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]) },
-      payload: { fileName: "sepolia.opencert", document: demoDocument }
+      payload: { fileName: "sepolia.opencert", document: sepoliaFixture }
     });
     expect(missingCsrf.statusCode).toBe(403);
   });
@@ -198,7 +225,7 @@ describe("OpenCerts import boundary", () => {
         cookie: cookieHeader(issuerLogin.headers["set-cookie"] as string[]),
         "x-csrf-token": issuerLogin.json().csrfToken
       },
-      payload: { fileName: "sepolia.opencert", document: demoDocument }
+      payload: { fileName: "sepolia.opencert", document: sepoliaFixture }
     });
     expect(issuerImport.statusCode).toBe(403);
 
@@ -214,12 +241,12 @@ describe("OpenCerts import boundary", () => {
         cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
         "x-csrf-token": holderLogin.json().csrfToken
       },
-      payload: { fileName: "sepolia.json", document: demoDocument }
+      payload: { fileName: "sepolia.json", document: sepoliaFixture }
     });
     expect(malformed.statusCode).toBe(400);
   });
 
-  it("creates a pending import record without retaining or returning the source document", async () => {
+  it("verifies, normalizes, and stores a safe import preview", async () => {
     const holderLogin = await app.inject({
       method: "POST",
       url: "/auth/register",
@@ -235,20 +262,37 @@ describe("OpenCerts import boundary", () => {
       },
       payload: {
         fileName: "sepolia.opencert",
-        document: demoDocument,
+        document: sepoliaFixture,
         verificationMode: "LOCAL_TRUSTVC",
         issuerPolicyMode: "DEMO",
         retainEncryptedSource: false
       }
     });
 
-    expect(response.statusCode).toBe(202);
+    expect(response.statusCode).toBe(201);
     expect(response.json()).toMatchObject({
-      status: "pending_verification",
+      status: "verified",
       source: {
-        type: "UNKNOWN",
+        type: "OPENCERTS_V2",
         verificationMode: "LOCAL_TRUSTVC",
-        issuerPolicyMode: "DEMO"
+        issuerPolicyMode: "DEMO",
+        verification: {
+          all: true,
+          documentIntegrity: true,
+          documentStatus: true,
+          issuerIdentity: true
+        },
+        originalIssuerName: "Opencerts",
+        originalIdentityLocation: "dev.opencerts.io",
+        sampleMode: true
+      },
+      normalizedClaims: {
+        recipientName: "Your Name",
+        institution: "Opencerts",
+        credentialName: "Opencerts Demo Certificate",
+        course: "OpenCerts Demo",
+        issuedOn: "2025-05-29T00:00:00+08:00",
+        graduationDate: "2025-08-01T00:00:00+08:00"
       },
       disclaimer: bridgeDisclaimer
     });
@@ -261,19 +305,105 @@ describe("OpenCerts import boundary", () => {
         "academicCredential.additionalData.transcriptId"
       ])
     );
-    expect(JSON.stringify(response.json())).not.toContain("Your Name");
-    expect(JSON.stringify(response.json())).not.toContain("OpenCerts Demo");
+    expect(JSON.stringify(response.json().normalizedClaims)).not.toContain("SXXXXXXXY");
+    expect(JSON.stringify(response.json().normalizedClaims)).not.toContain("A+");
+    expect(JSON.stringify(response.json().normalizedClaims)).not.toContain("123456");
+    expect(JSON.stringify(response.json().normalizedClaims)).not.toContain("001");
 
     const storedImport = [...prisma.sourceCredentialImports.values()][0];
     expect(storedImport).toMatchObject({
       holderId: holderLogin.json().user.id,
-      sourceType: "UNKNOWN",
+      sourceType: "OPENCERTS_V2",
       verificationMode: "LOCAL_TRUSTVC",
       issuerPolicyMode: "DEMO",
-      status: "PENDING_VERIFICATION"
+      status: "VERIFIED"
     });
-    expect(JSON.stringify(storedImport)).not.toContain("Your Name");
-    expect(JSON.stringify(storedImport)).not.toContain("OpenCerts Demo");
+    expect(JSON.stringify(storedImport.normalizedClaims)).not.toContain("SXXXXXXXY");
+    expect(JSON.stringify(storedImport.normalizedClaims)).not.toContain("A+");
+    expect(JSON.stringify(storedImport.normalizedClaims)).not.toContain("123456");
+    expect(JSON.stringify(storedImport.normalizedClaims)).not.toContain("001");
+  });
+
+  it("records and returns a normalized failure for tampered or unverifiable sources", async () => {
+    verificationResult = {
+      ...validVerification,
+      summary: {
+        all: false,
+        documentIntegrity: false,
+        documentStatus: true,
+        issuerIdentity: true
+      },
+      accepted: false
+    };
+    const holderLogin = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/imports/opencerts",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: {
+        fileName: "sepolia.opencert",
+        document: {
+          ...sepoliaFixture,
+          data: {
+            ...(sepoliaFixture.data as Record<string, unknown>),
+            name: "tampered:string:Changed Certificate"
+          }
+        }
+      }
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      status: "invalid",
+      failureCode: "source_verification_failed",
+      verification: {
+        documentIntegrity: false
+      }
+    });
+    expect([...prisma.sourceCredentialImports.values()][0]).toMatchObject({
+      status: "FAILED",
+      failureCode: "source_verification_failed"
+    });
+  });
+
+  it("enforces issuer policy after verification", async () => {
+    const holderLogin = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/imports/opencerts",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: {
+        fileName: "sepolia.opencert",
+        document: sepoliaFixture,
+        issuerPolicyMode: "NUS_ONLY"
+      }
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      status: "invalid",
+      failureCode: "issuer_policy_failed"
+    });
+    expect([...prisma.sourceCredentialImports.values()][0]).toMatchObject({
+      status: "FAILED",
+      failureCode: "issuer_policy_failed"
+    });
   });
 
   it("keeps derivation closed until verification is implemented", async () => {
@@ -295,5 +425,73 @@ describe("OpenCerts import boundary", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().error).toContain("Phase 3");
+  });
+});
+
+describe("OpenCerts source helpers", () => {
+  it("normalizes the public fixture while keeping hidden fields separately addressable", () => {
+    const normalized = new AcademicClaimNormalizer().normalize(sepoliaFixture);
+
+    expect(normalized).toMatchObject({
+      originalIssuerName: "Opencerts",
+      originalIdentityLocation: "dev.opencerts.io",
+      sampleMode: true,
+      claims: {
+        recipientName: "Your Name",
+        institution: "Opencerts",
+        credentialName: "Opencerts Demo Certificate",
+        course: "OpenCerts Demo",
+        additionalData: {
+          studentId: "123456",
+          transcriptId: "001"
+        }
+      }
+    });
+    expect(normalized.claims.transcript?.[0]).toMatchObject({
+      courseCode: "CS 1110",
+      name: "Introduction to Programming",
+      grade: "A+",
+      semester: "1"
+    });
+  });
+
+  it("maps verification fragments into deterministic summaries", () => {
+    expect(
+      summarizeFragments(
+        [
+          { type: "DOCUMENT_INTEGRITY", status: "VALID" },
+          { type: "DOCUMENT_STATUS", status: "SKIPPED" },
+          { type: "ISSUER_IDENTITY", status: "VALID" }
+        ],
+        true
+      )
+    ).toEqual({
+      all: true,
+      documentIntegrity: true,
+      documentStatus: true,
+      issuerIdentity: true
+    });
+
+    expect(
+      summarizeFragments(
+        [
+          { type: "DOCUMENT_INTEGRITY", status: "INVALID" },
+          { type: "DOCUMENT_STATUS", status: "VALID" },
+          { type: "ISSUER_IDENTITY", status: "VALID" }
+        ],
+        false
+      )
+    ).toMatchObject({
+      all: false,
+      documentIntegrity: false
+    });
+  });
+
+  it("rejects the demo fixture in NUS_ONLY issuer policy mode", () => {
+    const normalized = new AcademicClaimNormalizer().normalize(sepoliaFixture);
+    const policy = new OpenCertsIssuerPolicy();
+
+    expect(() => policy.enforce("DEMO", normalized)).not.toThrow();
+    expect(() => policy.enforce("NUS_ONLY", normalized)).toThrow(IssuerPolicyError);
   });
 });

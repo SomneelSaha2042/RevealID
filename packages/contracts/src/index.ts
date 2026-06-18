@@ -236,6 +236,81 @@ export const importOpenCertsPendingResponseSchema = z.object({
   disclaimer: z.literal(bridgeDisclaimer)
 });
 
+export const opencertsVerificationSummarySchema = z.object({
+  all: z.boolean(),
+  documentIntegrity: z.boolean(),
+  documentStatus: z.boolean(),
+  issuerIdentity: z.boolean()
+});
+export type OpenCertsVerificationSummary = z.infer<typeof opencertsVerificationSummarySchema>;
+
+export const normalizedOpenCertsClaimsSchema = z.object({
+  recipientName: z.string().optional(),
+  institution: z.string().optional(),
+  credentialName: z.string().optional(),
+  course: z.string().optional(),
+  issuedOn: z.string().optional(),
+  graduationDate: z.string().optional(),
+  transcript: z
+    .array(
+      z.object({
+        courseCode: z.string().optional(),
+        name: z.string().optional(),
+        grade: z.string().optional(),
+        semester: z.string().optional()
+      })
+    )
+    .optional(),
+  additionalData: z
+    .object({
+      merit: z.string().optional(),
+      studentId: z.string().optional(),
+      transcriptId: z.string().optional()
+    })
+    .optional()
+});
+export type NormalizedOpenCertsClaims = z.infer<typeof normalizedOpenCertsClaimsSchema>;
+
+export const importOpenCertsVerifiedResponseSchema = z.object({
+  importId: z.string().uuid(),
+  status: z.literal("verified"),
+  source: z.object({
+    type: opencertsSourceTypeSchema,
+    sourceFileHash: z.string().min(1),
+    verifiedAt: z.string().datetime(),
+    verificationMode: opencertsVerificationModeSchema,
+    issuerPolicyMode: opencertsIssuerPolicyModeSchema,
+    verification: opencertsVerificationSummarySchema,
+    originalIssuerName: z.string().optional(),
+    originalIdentityLocation: z.string().optional(),
+    sampleMode: z.boolean()
+  }),
+  normalizedClaims: normalizedOpenCertsClaimsSchema,
+  hiddenByDefault: z.array(z.string()),
+  disclaimer: z.literal(bridgeDisclaimer)
+});
+
+export const importOpenCertsFailureResponseSchema = z.object({
+  status: z.literal("invalid"),
+  failureCode: z.enum([
+    "malformed_source",
+    "unsupported_source_type",
+    "source_verification_failed",
+    "issuer_policy_failed",
+    "external_verification_unavailable"
+  ]),
+  message: z.string(),
+  importId: z.string().uuid().optional(),
+  sourceFileHash: z.string().optional(),
+  verification: opencertsVerificationSummarySchema.optional()
+});
+
+export const importOpenCertsResponseSchema = z.discriminatedUnion("status", [
+  importOpenCertsPendingResponseSchema,
+  importOpenCertsVerifiedResponseSchema,
+  importOpenCertsFailureResponseSchema
+]);
+
 export const deriveFromOpenCertsImportRequestSchema = z.object({
   credentialTemplate: z.enum(["GRADUATION_PROOF", "INSTITUTION_COURSE_PROOF", "CUSTOM"])
 });
@@ -270,5 +345,8 @@ export type VerifyCredentialResponse = z.infer<typeof verifyCredentialResponseSc
 export type IssuerMetadataResponse = z.infer<typeof issuerMetadataResponseSchema>;
 export type ImportOpenCertsRequest = z.infer<typeof importOpenCertsRequestSchema>;
 export type ImportOpenCertsPendingResponse = z.infer<typeof importOpenCertsPendingResponseSchema>;
+export type ImportOpenCertsVerifiedResponse = z.infer<typeof importOpenCertsVerifiedResponseSchema>;
+export type ImportOpenCertsFailureResponse = z.infer<typeof importOpenCertsFailureResponseSchema>;
+export type ImportOpenCertsResponse = z.infer<typeof importOpenCertsResponseSchema>;
 export type DeriveFromOpenCertsImportRequest = z.infer<typeof deriveFromOpenCertsImportRequestSchema>;
 export type DeriveFromOpenCertsImportResponse = z.infer<typeof deriveFromOpenCertsImportResponseSchema>;

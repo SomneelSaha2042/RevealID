@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import {
   deriveFromOpenCertsImportRequestSchema,
-  importOpenCertsPendingResponseSchema,
+  importOpenCertsFailureResponseSchema,
+  importOpenCertsResponseSchema,
   importOpenCertsRequestSchema
 } from "@revealid/contracts";
-import type { OpenCertsImportService } from "../imports/opencerts-import-service.js";
+import { OpenCertsImportError, type OpenCertsImportService } from "../imports/opencerts-import-service.js";
 
 export async function registerImportRoutes(
   app: FastifyInstance,
@@ -43,20 +44,23 @@ export async function registerImportRoutes(
         return reply.code(401).send({ error: "Unauthenticated" });
       }
       try {
-        const response = await options.openCertsImportService.createPendingImport(
+        const response = await options.openCertsImportService.importOpenCerts(
           holderId,
           importOpenCertsRequestSchema.parse(request.body)
         );
-        return reply.code(202).send(importOpenCertsPendingResponseSchema.parse(response));
+        return reply.code(201).send(importOpenCertsResponseSchema.parse(response));
       } catch (error) {
         if (error instanceof Error && error.message === "OpenCerts upload too large") {
           return reply.code(413).send({ error: "OpenCerts upload too large" });
         }
         if (
           error instanceof Error &&
-          error.message === "OpenCerts source retention is not available in Phase 1"
+          error.message === "OpenCerts source retention is not available in Phase 2"
         ) {
-          return reply.code(409).send({ error: "OpenCerts source retention is not available in Phase 1" });
+          return reply.code(409).send({ error: "OpenCerts source retention is not available in Phase 2" });
+        }
+        if (error instanceof OpenCertsImportError) {
+          return reply.code(error.statusCode).send(importOpenCertsFailureResponseSchema.parse(error.response));
         }
         throw error;
       }
