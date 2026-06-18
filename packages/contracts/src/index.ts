@@ -189,7 +189,7 @@ export const issuerMetadataResponseSchema = z.object({
 export const opencertsVerificationModeSchema = z.enum(["LOCAL_TRUSTVC", "OPENCERTS_API"]);
 export type OpenCertsVerificationMode = z.infer<typeof opencertsVerificationModeSchema>;
 
-export const opencertsIssuerPolicyModeSchema = z.enum(["DEMO", "NUS_ONLY"]);
+export const opencertsIssuerPolicyModeSchema = z.enum(["DEMO", "INSTITUTION_ONLY"]);
 export type OpenCertsIssuerPolicyMode = z.infer<typeof opencertsIssuerPolicyModeSchema>;
 
 export const opencertsSourceTypeSchema = z.enum(["OPENCERTS_V2", "OPENCERTS_V3", "UNKNOWN"]);

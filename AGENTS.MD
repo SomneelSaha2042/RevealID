@@ -6,7 +6,7 @@
 
 RevealID is a privacy-preserving academic credential wallet, verifier, and OpenCerts bridge. The system must never reveal claims the holder did not explicitly disclose.
 
-For the OpenCerts Bridge MVP, RevealID verifies a holder-provided `.opencert`, normalizes it, issues a RevealID-derived SD-JWT credential, and reuses the existing wallet/share/verifier flow. It must not claim to be the original institution or an official NUS selective-disclosure issuer.
+For the OpenCerts Bridge MVP, RevealID verifies a holder-provided `.opencert`, normalizes it, issues a RevealID-derived SD-JWT credential, and reuses the existing wallet/share/verifier flow. It must not claim to be the original institution or an official institutional selective-disclosure issuer.
 
 ---
 
@@ -31,7 +31,7 @@ These rules are non-negotiable. Every task must respect all of them.
 - Verification responses must expose disclosed claims only
 - OpenCerts API fallback must be explicit because it transfers uploaded credential contents outside RevealID
 - Raw source-file retention must be disabled by default; if enabled, retain only encrypted content with a retention expiry
-- Do not imply NUS endorsement, NUS issuance, or NUS key control without a real integration and updated ADR
+- Do not imply original-institution endorsement, issuance, or key control without a real integration and updated ADR
 
 ---
 
@@ -99,7 +99,7 @@ This keeps the system testable and protects against accidental inconsistency bet
 - Optional fallback mode: `OPENCERTS_API`
 - Fallback must be documented as an external transfer of uploaded document content
 - `DEMO` issuer policy may accept the public OpenCerts demo fixture
-- `NUS_ONLY` issuer policy must reject non-NUS/demo fixtures until a genuine NUS-issued `.opencert` and allowlist are available
+- `INSTITUTION_ONLY` issuer policy must reject demo fixtures until an approved institutional `.opencert` and allowlist are available
 
 ---
 

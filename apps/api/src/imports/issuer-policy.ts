@@ -21,12 +21,6 @@ export class OpenCertsIssuerPolicy {
       throw new IssuerPolicyError("Demo issuer policy only accepts the public OpenCerts demo issuer");
     }
 
-    const issuerName = source.originalIssuerName?.toLowerCase() ?? "";
-    const identityLocation = source.originalIdentityLocation?.toLowerCase() ?? "";
-    if (issuerName.includes("national university of singapore") || identityLocation.endsWith("nus.edu.sg")) {
-      return;
-    }
-
-    throw new IssuerPolicyError("NUS_ONLY issuer policy rejected this OpenCerts source");
+    throw new IssuerPolicyError("Institution-only issuer policy is disabled until an approved issuer allowlist exists");
   }
 }

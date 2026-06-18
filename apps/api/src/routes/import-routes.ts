@@ -32,7 +32,7 @@ export async function registerImportRoutes(
             fileName: { type: "string", minLength: 1, maxLength: 240 },
             document: { type: "object", additionalProperties: true },
             verificationMode: { type: "string", enum: ["LOCAL_TRUSTVC", "OPENCERTS_API"] },
-            issuerPolicyMode: { type: "string", enum: ["DEMO", "NUS_ONLY"] },
+            issuerPolicyMode: { type: "string", enum: ["DEMO", "INSTITUTION_ONLY"] },
             retainEncryptedSource: { type: "boolean" }
           }
         }

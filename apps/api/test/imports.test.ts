@@ -391,7 +391,7 @@ describe("OpenCerts import boundary", () => {
       payload: {
         fileName: "sepolia.opencert",
         document: sepoliaFixture,
-        issuerPolicyMode: "NUS_ONLY"
+        issuerPolicyMode: "INSTITUTION_ONLY"
       }
     });
 
@@ -487,11 +487,11 @@ describe("OpenCerts source helpers", () => {
     });
   });
 
-  it("rejects the demo fixture in NUS_ONLY issuer policy mode", () => {
+  it("rejects the demo fixture in institution-only issuer policy mode", () => {
     const normalized = new AcademicClaimNormalizer().normalize(sepoliaFixture);
     const policy = new OpenCertsIssuerPolicy();
 
     expect(() => policy.enforce("DEMO", normalized)).not.toThrow();
-    expect(() => policy.enforce("NUS_ONLY", normalized)).toThrow(IssuerPolicyError);
+    expect(() => policy.enforce("INSTITUTION_ONLY", normalized)).toThrow(IssuerPolicyError);
   });
 });

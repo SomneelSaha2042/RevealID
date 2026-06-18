@@ -6,42 +6,83 @@
 ![Fastify](https://img.shields.io/badge/Fastify-5-111827)
 ![Privacy](https://img.shields.io/badge/privacy-SD--JWT-0f766e)
 
-RevealID is a privacy-preserving academic credential wallet and verifier. It demonstrates how a credential holder can share only selected claims, such as degree and graduation year, while keeping sensitive claims such as CGPA and marks hidden from the verifier.
+RevealID is a privacy-preserving academic credential wallet, verifier, and OpenCerts bridge. It lets a holder turn an existing OpenCerts `.opencert` file into a RevealID-derived SD-JWT credential, then share only selected claims through an expiring, holder-bound verification link.
 
-The core implementation uses SD-JWT selective disclosure with Ed25519 issuer signatures and mandatory holder key binding for public presentations. It is intentionally built as an evaluator-friendly portfolio project: full-stack UI, production deployment, OpenAPI docs, threat model, Docker support, CI gates, and browser e2e tests.
+The important distinction: RevealID does not replace OpenCerts or the original issuer. It verifies a user-provided source credential, derives a selective-disclosure proof, and clearly labels that proof as RevealID-derived.
 
-## Live Deployment
+## Current Status
 
-| Service | URL |
-| --- | --- |
-| Web app | [https://revealidweb-production.up.railway.app/](https://revealidweb-production.up.railway.app/) |
-| API | [https://revealidapi-production.up.railway.app/](https://revealidapi-production.up.railway.app/) |
-| Swagger/OpenAPI | [https://revealidapi-production.up.railway.app/docs](https://revealidapi-production.up.railway.app/docs) |
-| API health | [https://revealidapi-production.up.railway.app/health](https://revealidapi-production.up.railway.app/health) |
+RevealID already has the core SD-JWT wallet and verifier infrastructure:
 
-Latest production smoke check: May 30, 2026. Web root, API health, web `/api/health` proxy, and Swagger UI returned `200 OK`.
+- Cookie-backed auth with holder/issuer roles.
+- Ed25519 SD-JWT credential issuance.
+- Mandatory holder key binding for public presentations.
+- Encrypted credential and presentation storage.
+- Opaque share links backed by SHA-256 token hashes.
+- Expiry, cancellation, max-view controls, revocation checks, OpenAPI docs, CI gates, and API tests.
+
+The OpenCerts bridge is being added in phases:
+
+| Phase | Status | What it proves |
+| --- | --- | --- |
+| 0. Baseline lock | Complete | Existing RevealID gates pass before bridge work |
+| 1. Import boundary | Complete | Authenticated holder import route, import persistence, safe metadata-only response |
+| 2. Verification and normalization | Complete | TrustVC-backed source verification, OpenCerts fixture, issuer policy, normalized safe preview |
+| 3. Derived credential issuance | Next | Verified imports become RevealID-derived SD-JWT wallet credentials |
+| 4. Wallet/share/verifier UX | Planned | End-to-end import, derive, share, and verify UI |
+| 5. Hardening and demo | Planned | Redaction checks, demo script, deployment smoke, production-ready narrative |
+
+## Product Idea
+
+OpenCerts proves authenticity and tamper resistance for academic documents, but the verifier usually sees the whole file. RevealID adds a privacy layer on top:
+
+```text
+OpenCerts source file
+  -> local TrustVC verification
+  -> normalized academic claims
+  -> RevealID-derived SD-JWT credential
+  -> holder-selected disclosure
+  -> public verifier sees disclosed claims only
+```
+
+For the student-led MVP, the source fixture is the public OpenCerts `sepolia.opencert` sample in `samples/opencerts/sepolia.opencert`. Institution-only acceptance remains disabled until there is an approved institutional `.opencert` and a concrete issuer allowlist.
 
 ## What It Does
 
-- Issuer signs academic credentials using Ed25519-backed SD-JWT VC issuance.
-- Holder stores credentials in an encrypted wallet and chooses which claims to disclose.
-- RevealID creates holder-bound verifiable presentations with audience, nonce, expiry, and max-view policy.
-- Verifier opens a public link or QR payload and receives only disclosed claims.
-- Issuers can revoke credentials; revoked credentials fail future verification.
-- Share links are backed by opaque tokens. The database stores SHA-256 token hashes only.
+- Verifies OpenCerts/OpenAttestation-style source documents behind `SourceCredentialVerificationService`.
+- Normalizes salted OpenAttestation values into a safe academic claim preview.
+- Enforces issuer policy modes: `DEMO` and `INSTITUTION_ONLY`.
+- Keeps transcript rows, grades, NRIC-like identifiers, student ID, and transcript ID hidden by default.
+- Uses the existing RevealID SD-JWT wallet as the downstream selective-disclosure layer.
+- Creates holder-bound public presentations with audience, nonce, expiry, and max-view policy.
+- Returns only disclosed claims to verifiers.
+
+## What It Does Not Claim
+
+- RevealID is not an official institutional issuer.
+- RevealID does not imply original-institution endorsement.
+- RevealID does not replace the original OpenCerts verifier.
+- RevealID does not support Verifiable PDF import in the MVP.
+- RevealID does not provide zero-knowledge threshold proofs.
+- RevealID does not trust arbitrary JSON without source verification.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Issuer[Issuer UI] --> Web[Next.js Web App]
-  Holder[Holder Wallet] --> Web
-  Verifier[Public Verifier] --> Web
+  Holder[Holder] --> Web[Next.js Web App]
+  Verifier[Verifier] --> Web
 
   Web -->|/api/* first-party proxy| API[Fastify API]
   API --> Auth[AuthService]
+  API --> Import[OpenCertsImportService]
   API --> Credential[CredentialService]
   API --> Presentation[PresentationService]
+
+  Import --> SourceVerify[SourceCredentialVerificationService]
+  Import --> Normalize[AcademicClaimNormalizer]
+  Import --> Policy[OpenCertsIssuerPolicy]
+  SourceVerify --> TrustVC[TrustVC / OpenCerts API fallback]
 
   Credential --> Crypto[CredentialCryptoService]
   Presentation --> Crypto
@@ -52,15 +93,14 @@ flowchart LR
   Presentation --> Status[CredentialStatusService]
 
   Auth --> DB[(PostgreSQL)]
+  Import --> DB
   Credential --> DB
   Presentation --> DB
-  Keys --> DB
-  Status --> DB
 
   Crypto --> SDJWT[SD-JWT VC / Ed25519]
 ```
 
-Routes do not call cryptographic libraries directly. Credential issuance, presentation creation, verification, key handling, envelope encryption, and revocation checks stay behind dedicated services.
+Routes do not call TrustVC, OpenCerts API clients, JOSE, or SD-JWT libraries directly. Source import, credential issuance, presentation creation, verification, key handling, envelope encryption, and revocation checks stay behind dedicated services.
 
 Detailed docs:
 
@@ -77,12 +117,14 @@ Detailed docs:
 RevealID's central invariant is simple: verification responses expose disclosed claims only.
 
 - Full credentials are never returned to the frontend.
+- Full source `.opencert` documents are not returned after import.
 - Encrypted credential and presentation blobs remain server-side.
 - Raw share tokens are never stored in the database.
 - Public verification requires holder key binding, expected audience, expected nonce, expiry checks, view-limit checks, and revocation checks.
 - Access and refresh tokens use HTTP-only cookies, not browser `localStorage`.
 - Issuer-only operations enforce the `ISSUER` role.
-- Verification audit records store result metadata and hashed request metadata, not claims, emails, raw tokens, credentials, or presentations.
+- Holder import, derive, and share operations enforce authenticated ownership.
+- Verification audit records store result metadata and hashed request metadata, not claims, emails, raw tokens, credentials, source documents, or presentations.
 
 ## Tech Stack
 
@@ -90,6 +132,7 @@ RevealID's central invariant is simple: verification responses expose disclosed 
 | --- | --- |
 | Web | Next.js 16, React 19, TypeScript, custom responsive CSS |
 | API | Fastify 5, Zod, Swagger UI |
+| OpenCerts verification | `@trustvc/trustvc`, `ethers@5` |
 | Crypto | `@sd-jwt/core`, `@sd-jwt/sd-jwt-vc`, `@sd-jwt/crypto-nodejs`, `jose` |
 | Data | PostgreSQL, Prisma |
 | Tests | Vitest, Playwright |
@@ -108,11 +151,11 @@ Start the local stack:
 ```bash
 cp .env.example .env
 docker compose up -d postgres
-pnpm install
-pnpm db:generate
-pnpm db:migrate
-pnpm db:seed
-pnpm dev
+corepack pnpm install
+corepack pnpm db:generate
+corepack pnpm db:migrate
+corepack pnpm db:seed
+corepack pnpm dev
 ```
 
 Open:
@@ -137,9 +180,11 @@ Swagger UI is available at `/docs`. Browser calls go through the web app's first
 | Auth | `POST /auth/register` | Register a holder account |
 | Auth | `POST /auth/login` | Start a cookie-backed session |
 | Auth | `GET /me` | Read the current authenticated user |
-| Issuer | `POST /credentials/issue` | Issue an SD-JWT academic credential |
+| Imports | `POST /imports/opencerts` | Verify and normalize an OpenCerts source document |
+| Imports | `POST /imports/opencerts/:importId/derive` | Phase 3: derive a wallet credential from a verified import |
+| Issuer | `POST /credentials/issue` | Existing demo issuer SD-JWT credential flow |
 | Issuer | `GET /issuer/credentials` | List issuer-owned credential metadata |
-| Issuer | `POST /credentials/:id/revoke` | Revoke an issued credential |
+| Issuer | `POST /credentials/:id/revoke` | Revoke a credential |
 | Wallet | `GET /wallet/credentials` | List holder-owned credentials |
 | Wallet | `GET /wallet/credentials/:id` | Read holder credential detail for sharing |
 | Shares | `POST /credentials/share` | Create a holder-bound selective disclosure link |
@@ -154,13 +199,16 @@ Swagger UI is available at `/docs`. Browser calls go through the web app's first
 Run the standard gate:
 
 ```bash
-pnpm verify
+corepack pnpm lint
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
 ```
 
 Run browser e2e tests:
 
 ```bash
-pnpm test:e2e
+corepack pnpm test:e2e
 ```
 
 The test suite covers:
@@ -169,17 +217,20 @@ The test suite covers:
 - Selective disclosure of only holder-selected fields.
 - Serialized presentations and verifier responses excluding hidden CGPA and marks.
 - Tampered values, wrong audience, wrong nonce, missing holder binding, expired shares, revoked credentials, and rate limits.
+- OpenCerts import auth, CSRF, holder-only access, malformed upload rejection, source verification failure, issuer-policy rejection, and safe normalized previews.
 - Browser happy path, privacy path, and revoked-credential failure path across desktop and mobile Chromium.
 
 ## Repository Layout
 
 ```text
 apps/
-  api/          Fastify API, Prisma schema, auth, routes, credential services
+  api/          Fastify API, Prisma schema, auth, routes, imports, credential services
   web/          Next.js issuer, holder, sharing, and verifier UI
 packages/
   contracts/    Shared Zod request and response schemas
   crypto/       SD-JWT issuance, presentation, and verification service
+samples/
+  opencerts/    Public OpenCerts fixture for import tests
 docs/
   decisions/    Architecture decision records
   *.md          Architecture, protocol, threat model, API, deployment, audit docs
@@ -196,10 +247,31 @@ RevealID is deployed on Railway as separate web, API, and PostgreSQL services. T
 
 Production requires real values for auth token secrets, the credential encryption key, and the issuer private JWK. `.env.example` is intentionally local/demo-safe.
 
+OpenCerts production validation becomes meaningful in stages:
+
+- Phase 2: verify and normalize source imports in production.
+- Phase 3: derive wallet credentials from verified imports.
+- Phase 4: complete import, derive, share, and verify product flow.
+- Phase 5: public demo and external-review readiness.
+
+## Product Feasibility
+
+Yes, RevealID can realistically build the MVP it is aiming for, with one important boundary: it can be a derived proof system, not an official institutional issuer.
+
+The feasible product is:
+
+> A holder uploads an existing OpenCerts credential, RevealID verifies it, derives a privacy-preserving SD-JWT credential, and lets the holder disclose only selected fields to a verifier.
+
+The infeasible or dishonest product, without institutional cooperation, is:
+
+> RevealID issues official institutional selective-disclosure credentials or claims original-institution endorsement.
+
+That boundary is not a weakness. It is the product's credibility line.
+
 ## Portfolio Summary
 
-RevealID demonstrates privacy-preserving credential sharing with production-minded engineering boundaries: real selective disclosure, service-isolated cryptography, encrypted storage, revocation, OpenAPI docs, CI gates, full-stack UI, and browser e2e coverage.
+RevealID demonstrates privacy-preserving credential sharing with production-minded engineering boundaries: OpenCerts source verification, real SD-JWT selective disclosure, service-isolated cryptography, encrypted storage, revocation, OpenAPI docs, CI gates, full-stack UI, and browser e2e coverage.
 
 Resume-ready version:
 
-> Built RevealID, a full-stack TypeScript academic credential wallet using SD-JWT selective disclosure, Ed25519 holder binding, encrypted credential storage, revocation checks, and Playwright privacy tests to ensure verifiers only receive explicitly disclosed claims.
+> Built RevealID, a full-stack TypeScript academic credential wallet and OpenCerts bridge using TrustVC source verification, SD-JWT selective disclosure, Ed25519 holder binding, encrypted credential storage, revocation checks, and privacy tests to ensure verifiers only receive explicitly disclosed claims.

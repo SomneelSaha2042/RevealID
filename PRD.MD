@@ -6,7 +6,7 @@
 
 RevealID is a privacy-preserving bridge for existing OpenCerts academic credentials. A holder uploads an OpenCerts `.opencert` file, RevealID verifies the source document, normalizes the academic claims, issues a RevealID-derived SD-JWT credential into the existing wallet, and lets the holder disclose only selected claims through an expiring, holder-bound share link.
 
-The MVP builds on the current RevealID backend, crypto, wallet, sharing, verifier, Prisma, and CI infrastructure. It does not replace OpenCerts, NUS issuance, or the existing RevealID SD-JWT selective-disclosure model.
+The MVP builds on the current RevealID backend, crypto, wallet, sharing, verifier, Prisma, and CI infrastructure. It does not replace OpenCerts, original-institution issuance, or the existing RevealID SD-JWT selective-disclosure model.
 
 The verifier should be able to confirm that:
 
@@ -31,8 +31,8 @@ For the OpenCerts bridge:
 - Verify before normalize, derive, store, or share
 - Prefer local TrustVC verification by default
 - Use the OpenCerts API only as an explicit fallback or diagnostic mode
-- Treat every derived credential as a RevealID-derived proof, not an official NUS-issued selective credential
-- Never imply NUS endorsement without a genuine NUS-issued `.opencert` and an explicit issuer policy update
+- Treat every derived credential as a RevealID-derived proof, not an official institution-issued selective credential
+- Never imply original-institution endorsement without an approved institutional `.opencert` and an explicit issuer policy update
 
 ---
 
@@ -45,7 +45,7 @@ For the OpenCerts bridge:
 | RevealID Demo issuer | Signs derived SD-JWT credentials after source verification |
 | Verifier | Opens a public link or QR payload and receives disclosed claims only |
 
-The MVP uses the public OpenCerts `sepolia.opencert` demo fixture for repeatable development and tests because no real NUS-issued `.opencert` is available yet. `NUS_ONLY` policy mode remains disabled until a genuine NUS-issued file can be validated against an allowlist.
+The MVP uses the public OpenCerts `sepolia.opencert` demo fixture for repeatable development and tests because no approved institutional `.opencert` is available yet. `INSTITUTION_ONLY` policy mode remains disabled until an approved institutional file can be validated against an allowlist.
 
 ---
 
@@ -137,8 +137,8 @@ The derived credential type for the bridge is `com.revealid.derivedAcademicCrede
 
 ### We Will Not Claim
 
-- Official NUS selective-disclosure credential issuance
-- NUS endorsement or integration
+- Official institutional selective-disclosure credential issuance
+- Original-institution endorsement or integration
 - Replacement for the OpenCerts verifier
 - Verifiable PDF support in the MVP
 - Zero-knowledge proofs
@@ -156,7 +156,7 @@ The derived credential type for the bridge is `com.revealid.derivedAcademicCrede
 | Source import | Holder can submit `.opencert` JSON to a typed authenticated route |
 | Source verification | Local TrustVC default verifies document integrity, status, and issuer identity summary |
 | API fallback | OpenCerts API fallback is opt-in and documented as an external transfer |
-| Issuer policy | `DEMO` mode accepts the public fixture; `NUS_ONLY` rejects demo/non-NUS fixtures until enabled with real evidence |
+| Issuer policy | `DEMO` mode accepts the public fixture; `INSTITUTION_ONLY` rejects demo fixtures until enabled with real evidence |
 | Normalization | Wrapped OA values map to deterministic normalized academic claims |
 | Derived credential | Verified imports become RevealID-derived SD-JWT credentials using existing crypto boundaries |
 | Holder wallet | Derived credentials appear in wallet with source provenance and disclaimer |
@@ -309,7 +309,7 @@ Existing `/credentials/share` and `/credentials/verify` remain the public select
 | --- | --- | --- |
 | Arbitrary JSON masquerades as OpenCerts | Verify before normalize and reject failed verification | Malformed and unverifiable uploads fail |
 | Source credential is tampered | TrustVC/OpenCerts verification must fail | Modified sample fixture is rejected |
-| Demo app implies NUS endorsement | Explicit derived-proof disclaimer and disabled `NUS_ONLY` mode | Verifier UI and API include disclaimer |
+| Demo app implies original-institution endorsement | Explicit derived-proof disclaimer and disabled `INSTITUTION_ONLY` mode | Verifier UI and API include disclaimer |
 | External verification leaks uploaded source | Local TrustVC default; API fallback opt-in only | Fallback requires explicit config/request |
 | Transcript or identifiers leak | Hidden-by-default fields and verifier response guards | Transcript, grades, NRIC, student ID absent unless selected |
 | Raw source retained indefinitely | No retention by default; encrypted TTL if enabled | Database/audit privacy tests |
@@ -357,7 +357,7 @@ The verifier page must show only disclosed claims, deterministic checks, and thi
 6. Share only recipient, institution, course, and graduation date.
 7. Open the verifier page and show disclosed claims only.
 8. Upload a tampered fixture and show rejection.
-9. Switch to `NUS_ONLY` mode in a controlled test/demo and show the public demo fixture is rejected.
+9. Switch to `INSTITUTION_ONLY` mode in a controlled test/demo and show the public demo fixture is rejected.
 
 ---
 

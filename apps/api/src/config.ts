@@ -13,7 +13,7 @@ const configSchema = z.object({
   ISSUER_ID: z.string().url().default("http://localhost:4000"),
   ISSUER_NAME: z.string().min(1).default("RevealID Demo Issuer"),
   OPENCERTS_VERIFICATION_MODE: z.enum(["LOCAL_TRUSTVC", "OPENCERTS_API"]).default("LOCAL_TRUSTVC"),
-  OPENCERTS_ISSUER_POLICY_MODE: z.enum(["DEMO", "NUS_ONLY"]).default("DEMO"),
+  OPENCERTS_ISSUER_POLICY_MODE: z.enum(["DEMO", "INSTITUTION_ONLY"]).default("DEMO"),
   OPENCERTS_API_VERIFY_URL: z.string().url().default("https://api.opencerts.io/verify"),
   OPENCERTS_RPC_PROVIDER_URL: z.preprocess(
     (value) => (value === "" ? undefined : value),

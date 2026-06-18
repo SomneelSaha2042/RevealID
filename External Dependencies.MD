@@ -152,7 +152,7 @@ mkdir -p samples/opencerts
 curl -L https://raw.githubusercontent.com/OpenCerts/opencerts-website/master/public/static/demo/sepolia.opencert -o samples/opencerts/sepolia.opencert
 ```
 
-Commit the fixture or document the exact acquisition command before writing CI tests. Do not use fabricated NUS credentials.
+Commit the fixture or document the exact acquisition command before writing CI tests. Do not use fabricated institutional credentials.
 
 ---
 
@@ -267,10 +267,10 @@ Allowed values:
 | Variable | Values | Default |
 | --- | --- | --- |
 | `OPENCERTS_VERIFICATION_MODE` | `LOCAL_TRUSTVC`, `OPENCERTS_API` | `LOCAL_TRUSTVC` |
-| `OPENCERTS_ISSUER_POLICY_MODE` | `DEMO`, `NUS_ONLY` | `DEMO` |
+| `OPENCERTS_ISSUER_POLICY_MODE` | `DEMO`, `INSTITUTION_ONLY` | `DEMO` |
 | `OPENCERTS_RETAIN_SOURCE` | `true`, `false` | `false` |
 
-`NUS_ONLY` must reject demo/non-NUS fixtures until a genuine NUS-issued `.opencert` and issuer allowlist are available.
+`INSTITUTION_ONLY` must reject demo fixtures until an approved institutional `.opencert` and issuer allowlist are available.
 
 Never commit real issuer keys, cookie secrets, encryption keys, access tokens, refresh tokens, private keys, or uploaded source credentials.
 

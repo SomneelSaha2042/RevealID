@@ -146,7 +146,7 @@ Field rules:
 | `fileName` | Yes | Must end in `.opencert` for MVP |
 | `document` | Yes | Parsed JSON object, not a stringified file |
 | `verificationMode` | No | `LOCAL_TRUSTVC` default; `OPENCERTS_API` explicit fallback |
-| `issuerPolicyMode` | No | `DEMO` default; `NUS_ONLY` rejects demo fixtures until real NUS allowlist exists |
+| `issuerPolicyMode` | No | `DEMO` default; `INSTITUTION_ONLY` rejects demo fixtures until an approved issuer allowlist exists |
 | `retainEncryptedSource` | No | Defaults to `false` |
 
 Phase 1 pending response:
@@ -629,7 +629,7 @@ Do not move existing credential, presentation, key, or encryption services unles
 | --- | --- |
 | Valid public `sepolia.opencert` import | Source verifies, import record is stored, normalized preview returned |
 | Tampered source fixture | Import is rejected and no derived credential is created |
-| `NUS_ONLY` with public demo fixture | Import is rejected by issuer policy |
+| `INSTITUTION_ONLY` with public demo fixture | Import is rejected by issuer policy |
 | Derive from verified import | Wallet credential is created with source provenance and disclaimer |
 | Share selected derived claims | Share response contains selected claim keys only |
 | Verify derived share | Verifier response shows disclosed claims, proof checks, source summary, and disclaimer |
