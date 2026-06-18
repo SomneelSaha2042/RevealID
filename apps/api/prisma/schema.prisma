@@ -12,6 +12,13 @@ enum Role {
   ISSUER
 }
 
+enum SourceCredentialImportStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  FAILED
+  DERIVED
+}
+
 model User {
   id           String           @id @default(uuid()) @db.Uuid
   email        String           @unique
@@ -25,6 +32,7 @@ model User {
   heldCredentials Credential[]  @relation("HolderCredentials")
   issuedCredentials Credential[] @relation("IssuerCredentials")
   shares       Share[]
+  sourceCredentialImports SourceCredentialImport[]
 }
 
 model RefreshSession {
@@ -66,6 +74,7 @@ model Credential {
   issuer                User     @relation("IssuerCredentials", fields: [issuerId], references: [id], onDelete: Restrict)
   shares                Share[]
   verificationAudits    VerificationAudit[]
+  sourceImports         SourceCredentialImport[]
 
   @@index([holderId, issuedAt])
   @@index([issuerId])
@@ -115,4 +124,30 @@ model VerificationAudit {
   @@index([shareId, createdAt])
   @@index([credentialId, createdAt])
   @@index([result, createdAt])
+}
+
+model SourceCredentialImport {
+  id                       String   @id @default(uuid()) @db.Uuid
+  holderId                 String   @db.Uuid
+  sourceType               String
+  sourceFileHash           String
+  verificationMode         String
+  issuerPolicyMode         String
+  verificationSummary      Json?
+  normalizedClaims         Json?
+  hiddenByDefault          String[]
+  encryptedSourceDocument  Json?
+  sourceRetentionExpiresAt DateTime?
+  derivedCredentialId      String?  @db.Uuid
+  status                   SourceCredentialImportStatus @default(PENDING_VERIFICATION)
+  failureCode              String?
+  createdAt                DateTime @default(now())
+  verifiedAt               DateTime?
+  holder                   User     @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  derivedCredential        Credential? @relation(fields: [derivedCredentialId], references: [id], onDelete: SetNull)
+
+  @@index([holderId, createdAt])
+  @@index([sourceFileHash])
+  @@index([status, createdAt])
+  @@index([derivedCredentialId])
 }

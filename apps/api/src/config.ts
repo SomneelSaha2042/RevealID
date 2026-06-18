@@ -12,6 +12,15 @@ const configSchema = z.object({
   ISSUER_PRIVATE_JWK: z.string().optional(),
   ISSUER_ID: z.string().url().default("http://localhost:4000"),
   ISSUER_NAME: z.string().min(1).default("RevealID Demo Issuer"),
+  OPENCERTS_VERIFICATION_MODE: z.enum(["LOCAL_TRUSTVC", "OPENCERTS_API"]).default("LOCAL_TRUSTVC"),
+  OPENCERTS_ISSUER_POLICY_MODE: z.enum(["DEMO", "NUS_ONLY"]).default("DEMO"),
+  OPENCERTS_API_VERIFY_URL: z.string().url().default("https://api.opencerts.io/verify"),
+  MAX_OPENCERTS_UPLOAD_BYTES: z.coerce.number().int().positive().default(1_048_576),
+  OPENCERTS_RETAIN_SOURCE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  OPENCERTS_SOURCE_RETENTION_DAYS: z.coerce.number().int().positive().default(31),
   COOKIE_SECURE: z
     .enum(["true", "false"])
     .default("true")

@@ -1,367 +1,369 @@
-## Product Requirements Document
+# RevealID OpenCerts Bridge MVP PRD
 
 ---
 
 ## 1. Product Narrative
 
-A university issues a signed academic credential to a student. The student stores it in a digital wallet and chooses exactly which claims to disclose to an employer. The employer receives a QR/share link and verifies that:
+RevealID is a privacy-preserving bridge for existing OpenCerts academic credentials. A holder uploads an OpenCerts `.opencert` file, RevealID verifies the source document, normalizes the academic claims, issues a RevealID-derived SD-JWT credential into the existing wallet, and lets the holder disclose only selected claims through an expiring, holder-bound share link.
 
-- The disclosed claims were signed by the issuer
-- Undisclosed claims were not revealed
-- The presentation belongs to the credential holder
+The MVP builds on the current RevealID backend, crypto, wallet, sharing, verifier, Prisma, and CI infrastructure. It does not replace OpenCerts, NUS issuance, or the existing RevealID SD-JWT selective-disclosure model.
+
+The verifier should be able to confirm that:
+
+- The source `.opencert` was verified before derivation
+- The disclosed claims are included in a RevealID-derived SD-JWT credential
+- Undisclosed claims are not revealed
+- The public presentation is bound to the holder key
 - The presentation is fresh and intended for this verifier
-- The credential has not been revoked
-- The share link has not expired
+- The share link has not expired, been cancelled, or exceeded its view limit
+- The derived credential has not been revoked in RevealID
 
 ---
 
-## 2. Trust Model
+## 2. Product and Protocol Invariants
 
-<aside>
-🏛️
+RevealID must never reveal claims the holder did not explicitly disclose.
 
-A holder should **not** issue their own university degree credential. The application separates issuer and holder roles with a seeded "Demo University" issuer account.
+Use RFC 9901-style SD-JWT selective disclosure with mandatory holder key binding for public presentations. Do not replace this with JSON filtering, ad hoc hashing, or hand-built selective disclosure.
 
-</aside>
+For the OpenCerts bridge:
 
-| **Actor** | **Capability** |
+- Verify before normalize, derive, store, or share
+- Prefer local TrustVC verification by default
+- Use the OpenCerts API only as an explicit fallback or diagnostic mode
+- Treat every derived credential as a RevealID-derived proof, not an official NUS-issued selective credential
+- Never imply NUS endorsement without a genuine NUS-issued `.opencert` and an explicit issuer policy update
+
+---
+
+## 3. Trust Model
+
+| Actor | Capability |
 | --- | --- |
-| **Issuer** | Issues and revokes signed academic credentials |
-| **Holder** | Stores credentials and creates selective-disclosure presentations |
-| **Verifier** | Opens a public link or scans QR code and verifies disclosed claims |
+| Original issuer | Issues the source OpenCerts credential outside RevealID |
+| Holder | Uploads a source `.opencert`, stores a derived credential, and chooses disclosure fields |
+| RevealID Demo issuer | Signs derived SD-JWT credentials after source verification |
+| Verifier | Opens a public link or QR payload and receives disclosed claims only |
+
+The MVP uses the public OpenCerts `sepolia.opencert` demo fixture for repeatable development and tests because no real NUS-issued `.opencert` is available yet. `NUS_ONLY` policy mode remains disabled until a genuine NUS-issued file can be validated against an allowlist.
 
 ---
 
-## 3. Example Credential
+## 4. MVP Flow
 
-**Full credential (issuer-signed):**
+1. Holder signs in with the existing RevealID account system.
+2. Holder uploads a `.opencert` JSON document.
+3. API validates upload size and shape, hashes the source document, and verifies it through `SourceCredentialVerificationService`.
+4. Local TrustVC verification is attempted first unless configuration explicitly selects the OpenCerts API fallback.
+5. `OpenCertsImportService` rejects unverifiable, tampered, unsupported, or issuer-policy-failing documents.
+6. `AcademicClaimNormalizer` unwraps OpenAttestation-style wrapped values and maps source fields into a conservative academic schema.
+7. RevealID creates a derived SD-JWT credential with source provenance, a disclaimer, and selectively disclosable normalized claims.
+8. The derived credential is stored using existing encrypted credential storage.
+9. Holder shares selected fields through the existing `PresentationService`.
+10. Public verifier receives only disclosed claims plus deterministic check results and a derived-proof disclaimer.
+
+---
+
+## 5. Example Source and Derived Claims
+
+The public OpenCerts demo fixture contains academic-like data such as recipient details, course information, transcript rows, grades, student ID, transcript ID, issuer metadata, and document status evidence.
+
+RevealID normalizes only the fields needed for selective disclosure and provenance:
 
 ```json
 {
-  "name": "Somneel Kumar Saha",
-  "degree": "Bachelor of Computing",
-  "major": "Computer Science and Quantitative Finance",
-  "graduationYear": 2027,
-  "cgpa": "4.07/5.00",
-  "studentId": "A0XXXXXXX",
-  "issuerName": "Demo University",
-  "issueDate": "2026-05-28"
-}
-```
-
-**Holder discloses only:**
-
-```json
-{
-  "degree": "Bachelor of Computing",
-  "major": "Computer Science and Quantitative Finance",
-  "graduationYear": 2027
-}
-```
-
----
-
-## 4. Standards Alignment
-
-| **Standard** | **How We Use It** |
-| --- | --- |
-| RFC 9901: SD-JWT | Core selective-disclosure mechanism |
-| W3C VC Data Model v2.0 | Actor model and credential/presentation terminology |
-| SD-JWT VC draft-16 | Credential metadata conventions (type, issuer discovery) |
-| OpenID4VP 1.0 | Post-submission extension only, not MVP |
-
-**README claim language:**
-
-> Implemented using RFC 9901 SD-JWT selective disclosure and aligned with the current SD-JWT VC draft conventions.
-> 
-
----
-
-## 5. What We Claim vs. What We Don't
-
-### We Will Claim
-
-- Selective disclosure of credential claims
-- Issuer-signed credential integrity
-- Holder-bound presentations
-- Replay-resistant expiring share sessions
-- Credential revocation checks
-- Privacy-preserving verification (hidden fields never in presentation)
-
-### We Will NOT Claim
-
-- Zero-knowledge proofs
-- Cryptographic proof that `CGPA >= 4.0` without revealing CGPA
-- Production government identity compatibility
-- Aadhaar authentication
-- Deepfake or fraud detection
-- Blockchain-backed trust
-
-<aside>
-💡
-
-For threshold checks, the issuer can issue an additional boolean claim like `"meetsHonoursRequirement": true` — the holder discloses that without revealing exact CGPA.
-
-</aside>
-
----
-
-## 6. Submission Scope (Must Ship)
-
-| **Capability** | **Required Outcome** |
-| --- | --- |
-| Authentication | Register, login, logout, protected routes, role separation |
-| Issuer console | Issue an academic credential to a holder |
-| Holder wallet | View owned credentials without leaking sensitive claims |
-| Selective disclosure | Holder selects claims and creates an SD-JWT presentation |
-| QR / share link | Time-limited public verification URL as QR |
-| Public verifier | Shows disclosed fields only + deterministic verification checks |
-| Credential status | Issuer revokes; verifier sees revocation failure |
-| Link controls | Expiry and cancellation of share link |
-| Security | Input validation, encryption at rest, rate limiting, token hashing, safe logging |
-| API docs | Swagger/OpenAPI and README |
-| Testing | Positive and adversarial crypto/integration tests |
-| Deployment | Fully deployed working flow |
-| Demo | Five-minute coherent demonstration |
-
----
-
-## 7. Strong Differentiators (If Core Is Stable)
-
-| **Feature** | **Portfolio Value** |
-| --- | --- |
-| JWKS endpoint for issuer key discovery | Shows real verification architecture |
-| Holder key binding with audience + nonce | Demonstrates protocol depth |
-| PII-safe verification audit events | Strong link to PwC governance experience |
-| One-use / max-view share sessions | Strong privacy UX |
-| Seeded demo walkthrough | Makes evaluator testing trivial |
-| Threat model + ADR documentation | Excellent engineering signal |
-
----
-
-## 8. Explicitly Postponed
-
-| **Feature** | **Why Postponed** |
-| --- | --- |
-| Browser-only non-custodial wallet key storage | Adds device recovery + browser key-management complexity |
-| OpenID4VP request flows | Good extension, not needed to prove core value |
-| BBS+ signatures | Impressive but unnecessary complexity |
-| Token status list standardisation | Implement basic status/revocation first |
-| QR camera scanner | QR generation + public link verification is enough |
-| Redis distributed rate limiting | Only if deploying multiple API instances |
-
----
-
-## 9. Technology Stack
-
-**Decision: All-TypeScript monorepo** — coherent with 2FAst experience, shared schemas, single ecosystem for Codex.
-
-| **Layer** | **Technology** | **Why** |
-| --- | --- | --- |
-| Package mgmt | `pnpm` workspaces | Fast, deterministic monorepo |
-| Frontend | Next.js 16, TypeScript, Tailwind, shadcn/ui | Modern, deployable, agent-friendly |
-| Backend | Fastify 5 + TypeScript | Lightweight, schema-driven API |
-| Database | PostgreSQL + Prisma | Relational model for creds/sessions/audit |
-| SD-JWT | `@sd-jwt/core`, `@sd-jwt/sd-jwt-vc` | RFC 9901-style flows |
-| JOSE / Ed25519 | `jose` | Mature JOSE primitives |
-| Password hashing | `argon2` | Appropriate password hashing |
-| Validation | TypeBox (API) / Zod (forms) | Schema-first APIs + good UI validation |
-| API docs | `@fastify/swagger`  • `@fastify/swagger-ui` | Auto-generated OpenAPI |
-| Rate limiting | `@fastify/rate-limit` | Verification endpoint protection |
-| Security headers | `@fastify/helmet` | Baseline HTTP security |
-| QR | `qrcode.react` | Fast QR generation |
-| Testing | Vitest, Playwright | Unit + integration + E2E |
-| Local env | Docker Compose | Reproducible dev environment |
-| Deployment | Railway (API/Postgres), Vercel (web) | Straightforward public deployment |
-
----
-
-## 10. Authentication & Key Management Model
-
-### Authentication
-
-- Argon2id password hashing
-- 15-minute access token
-- Refresh token rotation
-- HTTP-only secure cookies with SameSite
-- CSRF token for state-changing authenticated requests
-- Role checks for issuer endpoints
-- **No** bearer access tokens in browser `localStorage`
-
-### Issuer Signing Keys
-
-- Ed25519 issuer key pair
-- Public key exposed through JWKS
-- Private key stored as deployment secret or encrypted server-side
-- Every credential includes the issuer `kid`
-
-### Holder Key Model (Submission — Custodial)
-
-- Ed25519 key pair generated at account setup
-- Public key included in issued credentials (`cnf` claim)
-- Private key encrypted at rest with AES-256-GCM + server-side master key
-- Presentation generation requires authenticated holder action
-- README explicitly documents this as an MVP trade-off
-
-### Post-Submission Upgrade (Non-Custodial)
-
-- Move holder key generation into browser WebCrypto
-- Store private key in IndexedDB
-- Server never accesses the holder private key
-- Holder signs key-binding JWT locally
-
----
-
-## 11. Database Model (Core Prisma Entities)
-
-```
-enum UserRole { HOLDER, ISSUER }
-enum CredentialStatus { ACTIVE, REVOKED, EXPIRED }
-
-User → id, email, passwordHash, role, createdAt
-  → HolderKey (1:1) → publicJwk, encryptedPrivateJwk, encryptionIv/Tag
-  → Credential[] (as holder)
-  → ShareSession[]
-
-Issuer → id, name, issuerUrl, keyId, publicJwk, encryptedPrivateJwk
-  → Credential[]
-
-Credential → id, holderId, issuerId, type, encryptedSdJwt,
-             encryptionIv/Tag, displayMetadata, status, issuedAt,
-             expiresAt, revokedAt
-  → ShareSession[]
-
-ShareSession → id, credentialId, holderId, tokenHash,
-               encryptedPresentation, encryptionIv/Tag,
-               disclosedFields[], audience, nonce, expiresAt,
-               maxViews, viewCount, cancelledAt
-  → VerificationAudit[]
-
-VerificationAudit → id, shareSessionId, checkedAt, outcome,
-                    checks (JSON), requesterHash
-```
-
-<aside>
-🔒
-
-**Data protection rule:** Do not store raw CGPA, marks or student ID as searchable database columns. Store only encrypted credential blobs, minimal non-sensitive display metadata, and no disclosed values in long-lived audit logs.
-
-</aside>
-
----
-
-## 12. Credential & Presentation Protocol
-
-### 12.1 Issuance
-
-**Non-selective technical claims** (always in signed metadata):
-
-```json
-{
-  "iss": "https://issuer.revealid.app",
-  "sub": "holder-user-id",
-  "iat": 1780000000,
-  "exp": 1811536000,
-  "vct": "https://revealid.app/credentials/academic-degree/v1",
-  "credentialId": "uuid",
-  "cnf": { "jwk": { "...": "holder public key" } }
-}
-```
-
-**Selectively disclosable claims:** name, degree, major, graduationYear, cgpa, studentId, honoursEligible, issuerName, issueDate
-
-The SD-JWT credential is encrypted before storage.
-
-### 12.2 Sharing
-
-Holder chooses disclosure fields → backend confirms ownership → validates fields → creates opaque 256-bit share token → creates nonce + audience → builds SD-JWT presentation with holder key binding → encrypts presentation → stores only token hash → returns verification URL + QR payload.
-
-### 12.3 Verification
-
-Verifier opens `/verify/<opaque-token>` → API hashes token → finds share session → rejects invalid states → decrypts presentation → verifies issuer signature → verifies claim digests → verifies holder key binding → checks nonce/audience → checks expiry → checks revocation → returns disclosed claims only → records privacy-safe audit event.
-
-### 12.4 Verification Report
-
-```json
-{
-  "status": "verified",
-  "disclosedClaims": {
-    "degree": "Bachelor of Computing",
-    "graduationYear": 2027
+  "source": {
+    "type": "OPENCERTS_V2",
+    "sourceFileHash": "sha256:...",
+    "verifiedAt": "2026-06-18T13:00:00+08:00",
+    "verification": {
+      "all": true,
+      "documentIntegrity": true,
+      "documentStatus": true,
+      "issuerIdentity": true
+    },
+    "originalIssuerName": "Opencerts",
+    "originalIdentityLocation": "dev.opencerts.io",
+    "sampleMode": true
   },
-  "issuer": {
-    "name": "Demo University",
-    "trustStatus": "Trusted demo issuer"
+  "academicCredential": {
+    "recipientName": "Your Name",
+    "institution": "Opencerts",
+    "credentialName": "Opencerts Demo Certificate",
+    "course": "OpenCerts Demo",
+    "issuedOn": "2025-05-29T00:00:00+08:00",
+    "graduationDate": "2025-08-01T00:00:00+08:00"
   },
-  "checks": {
-    "issuerSignature": "passed",
-    "selectiveDisclosureIntegrity": "passed",
-    "holderBinding": "passed",
-    "audienceBinding": "passed",
-    "freshness": "passed",
-    "credentialStatus": "active",
-    "shareLinkStatus": "valid"
+  "privacy": {
+    "hiddenByDefault": [
+      "recipient.nric",
+      "academicCredential.transcript",
+      "academicCredential.additionalData.studentId",
+      "academicCredential.additionalData.transcriptId"
+    ]
   }
 }
 ```
 
-<aside>
-⚠️
-
-Verification UI must state: *"Verification confirms signed provenance and integrity of the disclosed claims. It does not independently validate the issuer's original real-world records."*
-
-</aside>
+Transcript rows, grades, NRIC-like identifiers, student ID, and transcript ID are hidden by default and must never appear in verifier responses unless explicitly selected in a future supported disclosure template.
 
 ---
 
-## 13. Threat Model Summary
+## 6. Standards Alignment
 
-| **Threat** | **Protection** | **Test Required** |
-| --- | --- | --- |
-| Verifier tampers with disclosed degree | SD-JWT digest/signature verification | Modified claim must fail |
-| Attacker adds undisclosed CGPA | Reject unreferenced disclosures | Injected claim must fail |
-| Attacker removes presentation proof | Require holder key binding | Missing binding must fail |
-| Copied QR link reused | Expiry, max views, one-time consumption | Second use must fail |
-| Presentation sent to wrong verifier | Audience binding | Wrong audience must fail |
-| Stale/replayed presentation | Nonce + expiry checks | Wrong nonce must fail |
-| Revoked credential reused | Status check on verification | Revoked credential must fail |
-| Database leaked | Encrypt credentials + keys at rest | No plaintext sensitive claims in DB |
-| Token guessed / stored raw | 256-bit random token; store hash only | Raw token absent from database |
-| Verification endpoint abuse | Rate limiting + generic failures | Rate-limit integration test |
-| Sensitive values leaked in logs | Log redaction + PII-free audits | Logging inspection |
-| User self-issues fake credential | Issuer role separation | Holder issuance rejected |
-| Cross-site request attacks | Cookie model + CSRF protection | Missing CSRF rejected |
-
----
-
-## 14. UX Design
-
-### Public Landing Page
-
-- Explain selective disclosure simply
-- Offer demo roles: "Try as University Issuer" / "Try as Student Holder" / "Open verification sample"
-- Show the privacy principle: share degree → hide CGPA → verify authenticity
-
-### Issuer Workflow
-
-Sign in as Demo University → Issue Credential → Enter holder email + claims → Confirm signing → Credential issued → View active/revoked credentials
-
-### Holder Workflow
-
-Register/sign in → Wallet shows credential → Select Share → Checkbox disclosure screen → Review "Shared" vs "Hidden" fields → Select expiry / one-use → Generate QR and link
-
-**Key UI moment — clear split:**
-
-| **Shared with Verifier** | **Kept Private** |
+| Standard or ecosystem | How RevealID uses it |
 | --- | --- |
-| Degree | CGPA |
-| Graduation year | Marks |
-| Honours eligibility | Student ID |
+| RFC 9901 SD-JWT | Core selective-disclosure and holder key-binding presentation mechanism |
+| SD-JWT VC draft conventions | Credential typing with `vct` and SD-JWT VC-style payloads |
+| OpenCerts / OpenAttestation | Source credential input format for the bridge MVP |
+| TrustVC | Local verification adapter for OpenCerts/OpenAttestation-compatible documents |
+| W3C VC Data Model v2.0 | Shared vocabulary for issuer, holder, verifier, credential, and presentation concepts |
 
-### Verifier Workflow
+The derived credential type for the bridge is `com.revealid.derivedAcademicCredential`.
 
-Open public link → Verification in progress → Verified / Invalid result → View disclosed claims only → View deterministic proof checks
+---
 
-### Invalid-State Demos
+## 7. What We Claim vs. What We Do Not Claim
 
-Polished failure pages for: expired link, cancelled share, revoked credential, tampered presentation, malformed/unknown token.
+### We Will Claim
+
+- OpenCerts source verification before derivation
+- RevealID-derived SD-JWT credential issuance
+- Selective disclosure of normalized academic claims
+- Holder-bound public presentations
+- Expiring and view-limited share links
+- Privacy-preserving verification responses that expose disclosed claims only
+- A clear disclaimer separating original source verification from RevealID-derived proof issuance
+
+### We Will Not Claim
+
+- Official NUS selective-disclosure credential issuance
+- NUS endorsement or integration
+- Replacement for the OpenCerts verifier
+- Verifiable PDF support in the MVP
+- Zero-knowledge proofs
+- Cryptographic proof of thresholds such as `CGPA >= 4.0` without revealing supporting data
+- Browser-only non-custodial wallet keys in the MVP
+- Trust in arbitrary JSON without OpenCerts/TrustVC verification
+
+---
+
+## 8. Submission Scope
+
+| Capability | Required outcome |
+| --- | --- |
+| Baseline gate | Existing RevealID lint, typecheck, test, and build pass before bridge work |
+| Source import | Holder can submit `.opencert` JSON to a typed authenticated route |
+| Source verification | Local TrustVC default verifies document integrity, status, and issuer identity summary |
+| API fallback | OpenCerts API fallback is opt-in and documented as an external transfer |
+| Issuer policy | `DEMO` mode accepts the public fixture; `NUS_ONLY` rejects demo/non-NUS fixtures until enabled with real evidence |
+| Normalization | Wrapped OA values map to deterministic normalized academic claims |
+| Derived credential | Verified imports become RevealID-derived SD-JWT credentials using existing crypto boundaries |
+| Holder wallet | Derived credentials appear in wallet with source provenance and disclaimer |
+| Selective sharing | Existing share flow supports derived credential claim keys |
+| Public verifier | Verifier sees disclosed fields only, proof checks, and derived-proof disclaimer |
+| Privacy | Raw source files are not retained by default and never returned after import |
+| Testing | Valid, tampered, hidden-claim, issuer-policy, and e2e privacy tests are added by phase |
+
+---
+
+## 9. Phased Build Plan and Gates
+
+Each phase must finish behind the standard gate:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+Run `pnpm test:e2e` once UI work begins.
+
+| Phase | Goal | Deliverables | Gate additions |
+| --- | --- | --- | --- |
+| 0. Baseline lock | Prove current repo health before bridge work | Current `pnpm verify` result documented | No OpenCerts code yet |
+| 1. Import boundary and contracts | Establish typed bridge boundary | Contracts, route skeleton, import model plan, fixture policy, docs | Schema and route validation tests |
+| 2. Verification and normalization | Make source import meaningful | `OpenCertsImportService`, `SourceCredentialVerificationService`, `AcademicClaimNormalizer`, TrustVC adapter, optional API fallback | Valid fixture, malformed input, tampered fixture, issuer policy tests |
+| 3. Derived credential issuance | Connect verified imports to RevealID wallet | Derived SD-JWT payload, provenance, disclaimer, encrypted storage | Hidden-claim and provenance tests |
+| 4. Wallet/share/verifier UX | Expose bridge in the existing app | Import screen, claim review, wallet provenance display, verifier disclaimer | Playwright happy path and privacy path |
+| 5. Hardening and demo | Make external review credible | Redaction checks, failure UX, demo script, deployment notes, CI import smoke | Full CI and demo runbook |
+
+Do not start the next phase until the current phase gate is green or the blocker is documented with a concrete fix.
+
+---
+
+## 10. Technology Stack
+
+| Layer | Technology | Why |
+| --- | --- | --- |
+| Package management | `pnpm` workspaces | Existing deterministic monorepo |
+| Frontend | Next.js 16, React, TypeScript | Existing app and first-party `/api/*` proxy |
+| Backend | Fastify 5, TypeScript, Zod | Existing API, schema validation, Swagger docs |
+| Database | PostgreSQL, Prisma | Existing credential, share, audit persistence |
+| Source verification | `@trustvc/trustvc` | Local OpenCerts/OpenAttestation-compatible verification |
+| Fallback verification | OpenCerts API `/verify` | Explicit diagnostic fallback, not default |
+| Selective disclosure | `@sd-jwt/core`, `@sd-jwt/sd-jwt-vc`, `jose` | Existing RFC 9901-style issuance and presentation |
+| Encryption | `EnvelopeEncryptionService` | Existing encrypted credential and presentation storage |
+| Testing | Vitest, Playwright | Existing unit, integration, and e2e gates |
+| Deployment | Railway and Docker | Existing deployment model |
+
+---
+
+## 11. Data Model Additions
+
+The existing `Credential`, `Share`, and `VerificationAudit` models remain the downstream wallet and verification backbone.
+
+Planned bridge model:
+
+```text
+SourceCredentialImport
+  id
+  holderId
+  sourceType
+  sourceFileHash
+  verificationMode
+  issuerPolicyMode
+  verificationSummary
+  normalizedClaims
+  hiddenByDefault
+  encryptedSourceDocument nullable
+  sourceRetentionExpiresAt nullable
+  derivedCredentialId nullable
+  status
+  createdAt
+  verifiedAt nullable
+```
+
+Storage defaults:
+
+- Store source hash, verification summary, normalized preview, and import status
+- Do not retain raw source documents by default
+- If retention is explicitly enabled, store only encrypted source content with a retention expiry
+- Do not store raw share tokens, full SD-JWT presentations, plaintext transcript rows in audit logs, or secrets
+
+---
+
+## 12. Protocol and Service Boundaries
+
+Routes must not call TrustVC, OpenCerts API clients, JOSE, SD-JWT libraries, or hashing/encryption primitives directly.
+
+Required service flow:
+
+```text
+Route -> OpenCertsImportService
+OpenCertsImportService -> SourceCredentialVerificationService
+OpenCertsImportService -> AcademicClaimNormalizer
+OpenCertsImportService -> CredentialService / CredentialCryptoService
+Presentation routes -> PresentationService
+Private keys -> KeyManagementService
+Ciphertext -> EnvelopeEncryptionService
+Revocation/status -> CredentialStatusService
+```
+
+Presentation creation and verification continue to use the existing holder key-binding, audience, nonce, expiry, view-limit, and revocation checks.
+
+---
+
+## 13. API Decisions
+
+### Import OpenCerts
+
+`POST /imports/opencerts`
+
+Authenticated holder route. Accepts:
+
+```json
+{
+  "fileName": "sepolia.opencert",
+  "document": {},
+  "verificationMode": "LOCAL_TRUSTVC",
+  "issuerPolicyMode": "DEMO",
+  "retainEncryptedSource": false
+}
+```
+
+Returns a typed import result with source hash, verification summary, normalized claim preview, hidden-by-default fields, and disclaimer. It must not return the full source document.
+
+### Derive From Import
+
+`POST /imports/opencerts/:importId/derive`
+
+Authenticated holder route. Accepts:
+
+```json
+{
+  "credentialTemplate": "GRADUATION_PROOF"
+}
+```
+
+Creates a wallet credential with `vct: com.revealid.derivedAcademicCredential` and returns the credential ID plus hidden-by-default fields.
+
+Existing `/credentials/share` and `/credentials/verify` remain the public selective-disclosure path.
+
+---
+
+## 14. Threat Model Additions
+
+| Threat | Protection | Test required |
+| --- | --- | --- |
+| Arbitrary JSON masquerades as OpenCerts | Verify before normalize and reject failed verification | Malformed and unverifiable uploads fail |
+| Source credential is tampered | TrustVC/OpenCerts verification must fail | Modified sample fixture is rejected |
+| Demo app implies NUS endorsement | Explicit derived-proof disclaimer and disabled `NUS_ONLY` mode | Verifier UI and API include disclaimer |
+| External verification leaks uploaded source | Local TrustVC default; API fallback opt-in only | Fallback requires explicit config/request |
+| Transcript or identifiers leak | Hidden-by-default fields and verifier response guards | Transcript, grades, NRIC, student ID absent unless selected |
+| Raw source retained indefinitely | No retention by default; encrypted TTL if enabled | Database/audit privacy tests |
+| Existing share replay | Reuse audience, nonce, expiry, max views, cancellation | Existing plus derived credential tests |
+
+---
+
+## 15. UX Design
+
+### Holder Import
+
+The holder sees an import page that accepts `.opencert` JSON, shows source verification results, and clearly states that RevealID creates a derived proof rather than an official credential from the original issuer.
+
+### Claim Review
+
+The holder sees normalized claims grouped as shared-ready fields and hidden-by-default fields. Transcript rows, grades, NRIC-like identifiers, student ID, and transcript ID should visually start in the hidden group.
+
+### Wallet
+
+Derived credentials appear beside existing credentials, with source type, source hash prefix, verification timestamp, original issuer name if available, and disclaimer.
+
+### Sharing
+
+The existing share form is reused after claim keys are generalized for derived credentials. Templates should include at least:
+
+- Graduation proof
+- Institution/course proof
+- Custom proof
+
+### Public Verifier
+
+The verifier page must show only disclosed claims, deterministic checks, and this disclaimer:
+
+> This is a RevealID-derived proof created from a user-provided OpenCerts file. It is not an official credential issued by the original institution.
+
+---
+
+## 16. Demo Script
+
+1. Sign in as the demo holder.
+2. Upload the public `sepolia.opencert` fixture.
+3. Show document integrity, document status, and issuer identity summary.
+4. Show normalized claims and hidden-by-default transcript/identifier fields.
+5. Derive a RevealID credential.
+6. Share only recipient, institution, course, and graduation date.
+7. Open the verifier page and show disclosed claims only.
+8. Upload a tampered fixture and show rejection.
+9. Switch to `NUS_ONLY` mode in a controlled test/demo and show the public demo fixture is rejected.
+
+---
+
+## 17. References
+
+- RFC 9901 SD-JWT: https://www.rfc-editor.org/rfc/rfc9901.html
+- TrustVC: https://github.com/TrustVC/trustvc
+- OpenCerts verify API: https://github.com/OpenCerts/opencerts-functions
+- OpenCerts demo fixture: https://github.com/OpenCerts/opencerts-website/blob/master/public/static/demo/sepolia.opencert

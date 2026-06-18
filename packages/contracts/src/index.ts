@@ -186,6 +186,68 @@ export const issuerMetadataResponseSchema = z.object({
   credentialTypes: z.array(z.string().min(1))
 });
 
+export const opencertsVerificationModeSchema = z.enum(["LOCAL_TRUSTVC", "OPENCERTS_API"]);
+export type OpenCertsVerificationMode = z.infer<typeof opencertsVerificationModeSchema>;
+
+export const opencertsIssuerPolicyModeSchema = z.enum(["DEMO", "NUS_ONLY"]);
+export type OpenCertsIssuerPolicyMode = z.infer<typeof opencertsIssuerPolicyModeSchema>;
+
+export const opencertsSourceTypeSchema = z.enum(["OPENCERTS_V2", "OPENCERTS_V3", "UNKNOWN"]);
+export type OpenCertsSourceType = z.infer<typeof opencertsSourceTypeSchema>;
+
+export const opencertsImportStatusSchema = z.enum([
+  "pending_verification",
+  "verified",
+  "failed",
+  "derived"
+]);
+export type OpenCertsImportStatus = z.infer<typeof opencertsImportStatusSchema>;
+
+export const importOpenCertsRequestSchema = z.object({
+  fileName: z.string().min(1).max(240).refine((value) => value.toLowerCase().endsWith(".opencert"), {
+    message: "fileName must end with .opencert"
+  }),
+  document: z.record(z.unknown()),
+  verificationMode: opencertsVerificationModeSchema.optional(),
+  issuerPolicyMode: opencertsIssuerPolicyModeSchema.optional(),
+  retainEncryptedSource: z.boolean().optional()
+});
+
+export const bridgeDisclaimer =
+  "This is a RevealID-derived proof created from a user-provided OpenCerts file. It is not an official credential issued by the original institution.";
+
+export const opencertsHiddenByDefault = [
+  "recipient.nric",
+  "academicCredential.transcript",
+  "academicCredential.additionalData.studentId",
+  "academicCredential.additionalData.transcriptId"
+] as const;
+
+export const importOpenCertsPendingResponseSchema = z.object({
+  importId: z.string().uuid(),
+  status: z.literal("pending_verification"),
+  source: z.object({
+    type: opencertsSourceTypeSchema,
+    sourceFileHash: z.string().min(1),
+    verificationMode: opencertsVerificationModeSchema,
+    issuerPolicyMode: opencertsIssuerPolicyModeSchema
+  }),
+  hiddenByDefault: z.array(z.string()),
+  disclaimer: z.literal(bridgeDisclaimer)
+});
+
+export const deriveFromOpenCertsImportRequestSchema = z.object({
+  credentialTemplate: z.enum(["GRADUATION_PROOF", "INSTITUTION_COURSE_PROOF", "CUSTOM"])
+});
+
+export const deriveFromOpenCertsImportResponseSchema = z.object({
+  credentialId: z.string().uuid(),
+  walletStatus: z.literal("STORED"),
+  credentialType: z.literal("RevealIDDerivedAcademicCredential"),
+  vct: z.literal("com.revealid.derivedAcademicCredential"),
+  hiddenByDefault: z.array(z.string())
+});
+
 export type AuthUser = z.infer<typeof authUserSchema>;
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
@@ -206,3 +268,7 @@ export type VerificationCheck = z.infer<typeof verificationCheckSchema>;
 export type VerifyCredentialRequest = z.infer<typeof verifyCredentialRequestSchema>;
 export type VerifyCredentialResponse = z.infer<typeof verifyCredentialResponseSchema>;
 export type IssuerMetadataResponse = z.infer<typeof issuerMetadataResponseSchema>;
+export type ImportOpenCertsRequest = z.infer<typeof importOpenCertsRequestSchema>;
+export type ImportOpenCertsPendingResponse = z.infer<typeof importOpenCertsPendingResponseSchema>;
+export type DeriveFromOpenCertsImportRequest = z.infer<typeof deriveFromOpenCertsImportRequestSchema>;
+export type DeriveFromOpenCertsImportResponse = z.infer<typeof deriveFromOpenCertsImportResponseSchema>;

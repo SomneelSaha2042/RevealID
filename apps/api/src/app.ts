@@ -15,9 +15,11 @@ import { CredentialStatusService } from "./credentials/credential-status-service
 import { EnvelopeEncryptionService } from "./credentials/envelope-encryption-service.js";
 import { KeyManagementService } from "./credentials/key-management-service.js";
 import { PresentationService } from "./credentials/presentation-service.js";
+import { OpenCertsImportService } from "./imports/opencerts-import-service.js";
 import { authPlugin } from "./http/auth-plugin.js";
 import { registerAuthRoutes } from "./routes/auth-routes.js";
 import { registerCredentialRoutes } from "./routes/credential-routes.js";
+import { registerImportRoutes } from "./routes/import-routes.js";
 import type { Prisma } from "./db.js";
 
 const getCredentialEncryptionKey = (config: AppConfig) => {
@@ -103,9 +105,16 @@ export async function buildApp(options: { config: AppConfig; prisma: Prisma }) {
     credentialStatusService,
     options.config.WEB_ORIGIN
   );
+  const openCertsImportService = new OpenCertsImportService(options.prisma as never, {
+    defaultVerificationMode: options.config.OPENCERTS_VERIFICATION_MODE,
+    defaultIssuerPolicyMode: options.config.OPENCERTS_ISSUER_POLICY_MODE,
+    maxUploadBytes: options.config.MAX_OPENCERTS_UPLOAD_BYTES,
+    retainSourceByDefault: options.config.OPENCERTS_RETAIN_SOURCE
+  });
   const authService = new AuthService(options.prisma, tokenService, keyManagementService);
   await app.register(authPlugin, { prisma: options.prisma, tokenService });
   await registerAuthRoutes(app, { authService, cookieSecure: options.config.COOKIE_SECURE });
+  await registerImportRoutes(app, { openCertsImportService });
   await registerCredentialRoutes(app, {
     credentialService,
     presentationService,
