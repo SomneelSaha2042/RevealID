@@ -1,6 +1,7 @@
 import { AppShell } from "../../../components/app-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
+import { formatClaimValue, labelForClaim } from "../../wallet/claim-labels";
 
 type VerificationCheck = {
   id: string;
@@ -17,6 +18,18 @@ type VerifyResponse =
       audience: string;
       expiresAt: string;
       claims: Record<string, string | number>;
+      disclaimer?: string;
+      sourceProvenance?: {
+        sourceType: string;
+        sourceFileHash: string;
+        verifiedAt: string;
+        verification: {
+          all: boolean;
+          documentIntegrity: boolean;
+          documentStatus: boolean;
+          issuerIdentity: boolean;
+        };
+      };
       checks: VerificationCheck[];
     }
   | {
@@ -124,11 +137,32 @@ export default async function VerifySharePage({ params }: PageProps) {
             <dl>
               {Object.entries(verification.claims).map(([key, value]) => (
                 <div key={key}>
-                  <dt>{key}</dt>
-                  <dd>{value}</dd>
+                  <dt>{labelForClaim(key)}</dt>
+                  <dd>{formatClaimValue(key, value)}</dd>
                 </div>
               ))}
             </dl>
+            {verification.sourceProvenance ? (
+              <section className="provenance-panel compact" aria-label="Source provenance">
+                <div>
+                  <span>Source</span>
+                  <strong>{verification.sourceProvenance.sourceType}</strong>
+                </div>
+                <div>
+                  <span>Hash</span>
+                  <strong>{verification.sourceProvenance.sourceFileHash.slice(0, 19)}...</strong>
+                </div>
+                <div>
+                  <span>Verified</span>
+                  <strong>
+                    {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+                      new Date(verification.sourceProvenance.verifiedAt)
+                    )}
+                  </strong>
+                </div>
+              </section>
+            ) : null}
+            {verification.disclaimer ? <p className="privacy-note">{verification.disclaimer}</p> : null}
             <p>
               Issued {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(verification.issuedAt))}.
               Share expires{" "}

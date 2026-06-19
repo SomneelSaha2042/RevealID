@@ -54,6 +54,7 @@ export async function buildApp(options: {
   sourceCredentialVerifier?: SourceCredentialVerifier;
 }) {
   const app = fastify({
+    disableRequestLogging: true,
     logger: {
       level: options.config.NODE_ENV === "test" ? "silent" : "info",
       redact: {
@@ -126,6 +127,7 @@ export async function buildApp(options: {
     sourceCredentialVerifier,
     new AcademicClaimNormalizer(),
     new OpenCertsIssuerPolicy(),
+    credentialService,
     {
       defaultVerificationMode: options.config.OPENCERTS_VERIFICATION_MODE,
       defaultIssuerPolicyMode: options.config.OPENCERTS_ISSUER_POLICY_MODE,
@@ -148,7 +150,10 @@ export async function buildApp(options: {
 
   app.get("/health", async () => ({ status: "ok" }));
 
-  app.setErrorHandler((error: Error & { code?: string }, _request, reply) => {
+  app.setErrorHandler((error: Error & { code?: string; statusCode?: number }, _request, reply) => {
+    if (error.statusCode === 429) {
+      return reply.code(429).send({ error: "Rate limit exceeded" });
+    }
     if (error.code === "P2002") {
       return reply.code(409).send({ error: "Email already registered" });
     }
@@ -163,6 +168,9 @@ export async function buildApp(options: {
     }
     if (error.message === "Credential not found" || error.message === "Share not found") {
       return reply.code(404).send({ error: "Not found" });
+    }
+    if (error.message === "Claim not found") {
+      return reply.code(400).send({ error: "Requested claim is not available on this credential" });
     }
     if (
       error.message === "Share expired" ||

@@ -1,22 +1,107 @@
 import { CredentialCryptoService } from "@revealid/crypto";
 import type { IssueCredentialInput } from "@revealid/crypto";
 import type {
+  AcademicClaimKey,
   CredentialDetailResponse,
+  DeriveFromOpenCertsImportResponse,
   IssueCredentialRequest,
   IssuerCredential,
+  NormalizedOpenCertsClaims,
+  OpenCertsVerificationSummary,
   WalletCredential
+} from "@revealid/contracts";
+import {
+  academicClaimKeys,
+  bridgeDisclaimer,
+  derivedSourceProvenanceSchema,
+  deriveFromOpenCertsImportResponseSchema,
+  opencertsHiddenByDefault
 } from "@revealid/contracts";
 import type { Prisma } from "../db.js";
 import { EnvelopeEncryptionService, type EncryptedEnvelope } from "./envelope-encryption-service.js";
 import { KeyManagementService } from "./key-management-service.js";
 
 const credentialType = "RevealIDAcademicCredential";
+const derivedCredentialType = "RevealIDDerivedAcademicCredential";
+const derivedCredentialVct = "com.revealid.derivedAcademicCredential";
 const credentialValidityMs = 1000 * 60 * 60 * 24 * 365 * 5;
 export const credentialAad = (holderId: string, issuedAt: string) => `revealid:credential:${holderId}:${issuedAt}`;
 
 const disclosureFrame = {
   _sd: ["degree", "graduationYear", "cgpa", "marks"]
-} satisfies IssueCredentialInput["disclosureFrame"];
+} as unknown as IssueCredentialInput["disclosureFrame"];
+
+const derivedDisclosureFrame = {
+  _sd: ["recipientName", "institution", "credentialName", "course", "issuedOn", "graduationDate"]
+} as unknown as IssueCredentialInput["disclosureFrame"];
+
+const publicClaim = (value: unknown) => (typeof value === "string" || typeof value === "number" ? value : undefined);
+
+const derivedClaimsFromNormalized = (
+  normalizedClaims: NormalizedOpenCertsClaims,
+  provenance: {
+    sourceType: string;
+    sourceFileHash: string;
+    verifiedAt: string;
+    verification: OpenCertsVerificationSummary;
+  }
+) => {
+  const claims: Record<string, unknown> = {
+    bridgeDisclaimer,
+    sourceProvenance: provenance
+  };
+  const derivedPublicKeys = [
+    "recipientName",
+    "institution",
+    "credentialName",
+    "course",
+    "issuedOn",
+    "graduationDate"
+  ] as const;
+  for (const key of derivedPublicKeys) {
+    const value = publicClaim(normalizedClaims[key]);
+    if (value !== undefined) {
+      claims[key] = value;
+    }
+  }
+  return claims;
+};
+
+const visibleClaims = (claims: Record<string, unknown>) => {
+  const visible: Partial<Record<AcademicClaimKey, string | number>> = {};
+  for (const key of academicClaimKeys) {
+    const value = publicClaim(claims[key]);
+    if (value !== undefined) {
+      visible[key] = value;
+    }
+  }
+  return visible;
+};
+
+const derivedCredentialMetadata = (claims: Record<string, unknown>) => {
+  const disclaimer: typeof bridgeDisclaimer | undefined =
+    claims.bridgeDisclaimer === bridgeDisclaimer ? bridgeDisclaimer : undefined;
+  const provenance = derivedSourceProvenanceSchema.safeParse(claims.sourceProvenance);
+  return {
+    ...(disclaimer ? { disclaimer } : {}),
+    ...(provenance.success ? { sourceProvenance: provenance.data } : {})
+  };
+};
+
+type WalletCredentialRecord = {
+  id: string;
+  credentialType: string;
+  issuerName: string;
+  issuedAt: Date;
+  expiresAt?: Date | null;
+  revokedAt?: Date | null;
+};
+
+type IssuerCredentialRecord = WalletCredentialRecord & {
+  holder: {
+    email: string;
+  };
+};
 
 export class CredentialService {
   constructor(
@@ -77,6 +162,69 @@ export class CredentialService {
     return this.toIssueResponse(credential);
   }
 
+  async issueDerivedAcademicCredential(input: {
+    holderId: string;
+    sourceType: string;
+    sourceFileHash: string;
+    verifiedAt: Date;
+    verificationSummary: OpenCertsVerificationSummary;
+    normalizedClaims: NormalizedOpenCertsClaims;
+  }): Promise<DeriveFromOpenCertsImportResponse> {
+    const holder = await this.prisma.user.findUnique({ where: { id: input.holderId } });
+    if (!holder || holder.role !== "HOLDER") {
+      throw new Error("Holder not found");
+    }
+    await this.keys.ensureHolderKey(holder.id);
+
+    const issuer = await this.prisma.user.findFirst({ where: { role: "ISSUER" }, orderBy: { createdAt: "asc" } });
+    if (!issuer) {
+      throw new Error("Issuer not found");
+    }
+
+    const holderPublicJwk = await this.keys.getHolderPublicJwk(holder.id);
+    const issuerKey = await this.keys.getIssuerSigningKey();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + credentialValidityMs);
+    const claims = derivedClaimsFromNormalized(input.normalizedClaims, {
+      sourceType: input.sourceType,
+      sourceFileHash: input.sourceFileHash,
+      verifiedAt: input.verifiedAt.toISOString(),
+      verification: input.verificationSummary
+    });
+    const sdJwt = await this.crypto.issueCredential({
+      issuerId: this.issuerId,
+      vct: derivedCredentialVct,
+      issuedAt: Math.floor(now.getTime() / 1000),
+      expiresAt: Math.floor(expiresAt.getTime() / 1000),
+      claims,
+      issuerPrivateJwk: issuerKey.privateJwk,
+      issuerPublicJwk: issuerKey.publicJwk,
+      holderPublicJwk,
+      disclosureFrame: derivedDisclosureFrame
+    });
+
+    const issuedAt = now.toISOString();
+    const credential = await this.prisma.credential.create({
+      data: {
+        holderId: holder.id,
+        issuerId: issuer.id,
+        credentialType: derivedCredentialType,
+        issuerName: issuer.name || this.issuerName,
+        issuedAt: now,
+        expiresAt,
+        encryptedSdJwt: this.envelopeEncryption.encryptUtf8(sdJwt, credentialAad(holder.id, issuedAt))
+      }
+    });
+
+    return deriveFromOpenCertsImportResponseSchema.parse({
+      credentialId: credential.id,
+      walletStatus: "STORED",
+      credentialType: derivedCredentialType,
+      vct: derivedCredentialVct,
+      hiddenByDefault: [...opencertsHiddenByDefault]
+    });
+  }
+
   async listWalletCredentials(holderId: string): Promise<WalletCredential[]> {
     const credentials = await this.prisma.credential.findMany({
       where: { holderId },
@@ -91,7 +239,7 @@ export class CredentialService {
       }
     });
 
-    return credentials.map((credential) => ({
+    return (credentials as WalletCredentialRecord[]).map((credential) => ({
       id: credential.id,
       credentialType: credential.credentialType,
       issuerName: credential.issuerName,
@@ -120,7 +268,7 @@ export class CredentialService {
       }
     });
 
-    return credentials.map((credential) => ({
+    return (credentials as IssuerCredentialRecord[]).map((credential) => ({
       id: credential.id,
       holderEmail: credential.holder.email,
       credentialType: credential.credentialType,
@@ -161,12 +309,8 @@ export class CredentialService {
       issuedAt: credential.issuedAt.toISOString(),
       expiresAt: credential.expiresAt?.toISOString() ?? null,
       revokedAt: credential.revokedAt?.toISOString() ?? null,
-      claims: {
-        degree: String(claims.degree),
-        graduationYear: Number(claims.graduationYear),
-        cgpa: Number(claims.cgpa),
-        marks: Number(claims.marks)
-      }
+      claims: visibleClaims(claims as Record<string, unknown>),
+      ...derivedCredentialMetadata(claims as Record<string, unknown>)
     };
   }
 

@@ -2,16 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { Link2, QrCode } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Button, ButtonLink } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Field, Input, Select } from "../../../components/ui/form";
-
-type AcademicClaimKey = "degree" | "graduationYear" | "cgpa" | "marks";
+import {
+  defaultClaimSelection,
+  formatClaimValue,
+  labelForClaim,
+  type AcademicClaimKey
+} from "../claim-labels";
 
 type CredentialDetail = {
   id: string;
-  claims: Record<AcademicClaimKey, string | number>;
+  claims: Partial<Record<AcademicClaimKey, string | number>>;
 };
 
 type ShareResult = {
@@ -22,15 +27,6 @@ type ShareResult = {
   disclosedClaims: AcademicClaimKey[];
 };
 
-const claimLabels: Record<AcademicClaimKey, string> = {
-  degree: "Degree",
-  graduationYear: "Graduation year",
-  cgpa: "CGPA",
-  marks: "Marks"
-};
-
-const claimKeys = Object.keys(claimLabels) as AcademicClaimKey[];
-
 const getCsrfToken = () =>
   document.cookie
     .split("; ")
@@ -38,7 +34,8 @@ const getCsrfToken = () =>
     ?.split("=")[1];
 
 export function ShareCredentialForm({ credential }: { credential: CredentialDetail }) {
-  const [selected, setSelected] = useState<AcademicClaimKey[]>(["degree", "graduationYear"]);
+  const claimKeys = useMemo(() => Object.keys(credential.claims) as AcademicClaimKey[], [credential.claims]);
+  const [selected, setSelected] = useState<AcademicClaimKey[]>(() => defaultClaimSelection(credential.claims));
   const [ttlMinutes, setTtlMinutes] = useState(1440);
   const [maxViews, setMaxViews] = useState(1);
   const [audience, setAudience] = useState("");
@@ -109,8 +106,8 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
               {claimKeys.map((claim) => (
                 <label className="checkbox-row" key={claim}>
                   <input checked={selected.includes(claim)} onChange={() => toggleClaim(claim)} type="checkbox" />
-                  <span>{claimLabels[claim]}</span>
-                  <strong>{credential.claims[claim]}</strong>
+                  <span>{labelForClaim(claim)}</span>
+                  <strong>{formatClaimValue(claim, credential.claims[claim] ?? "")}</strong>
                 </label>
               ))}
             </div>
@@ -134,6 +131,7 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
               <Input maxLength={240} onChange={(event) => setAudience(event.target.value)} placeholder="Optional verifier name or URL" value={audience} />
             </Field>
             <Button disabled={submitting} onClick={createShare} type="button">
+              <Link2 aria-hidden="true" size={16} />
               {submitting ? "Creating..." : "Create secure share"}
             </Button>
             {message ? <p className="form-message error">{message}</p> : null}
@@ -147,8 +145,8 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
           <ul>
             {selected.map((claim) => (
               <li key={claim}>
-                <span>{claimLabels[claim]}</span>
-                <strong>{credential.claims[claim]}</strong>
+                <span>{labelForClaim(claim)}</span>
+                <strong>{formatClaimValue(claim, credential.claims[claim] ?? "")}</strong>
               </li>
             ))}
             {selected.length === 0 ? <li>No claims selected.</li> : null}
@@ -159,8 +157,8 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
           <ul>
             {privateClaims.map((claim) => (
               <li key={claim}>
-                <span>{claimLabels[claim]}</span>
-                <strong>{credential.claims[claim]}</strong>
+                <span>{labelForClaim(claim)}</span>
+                <strong>{formatClaimValue(claim, credential.claims[claim] ?? "")}</strong>
               </li>
             ))}
             {privateClaims.length === 0 ? <li>No private claims remain.</li> : null}
@@ -175,6 +173,7 @@ export function ShareCredentialForm({ credential }: { credential: CredentialDeta
             <Badge tone="success">Ready to verify</Badge>
             <h2>Verification link</h2>
             <ButtonLink href={result.verificationUrl} variant="ghost">
+              <QrCode aria-hidden="true" size={16} />
               {result.verificationUrl}
             </ButtonLink>
             <p>

@@ -3,6 +3,7 @@ import { AppShell } from "../../../components/app-shell";
 import { EmptyState } from "../../../components/empty-state";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
+import type { AcademicClaimKey } from "../claim-labels";
 import { ShareCredentialForm } from "./ShareCredentialForm";
 
 type CredentialDetail = {
@@ -12,11 +13,18 @@ type CredentialDetail = {
   issuedAt: string;
   expiresAt: string | null;
   revokedAt: string | null;
-  claims: {
-    degree: string;
-    graduationYear: number;
-    cgpa: number;
-    marks: number;
+  claims: Partial<Record<AcademicClaimKey, string | number>>;
+  disclaimer?: string;
+  sourceProvenance?: {
+    sourceType: string;
+    sourceFileHash: string;
+    verifiedAt: string;
+    verification: {
+      all: boolean;
+      documentIntegrity: boolean;
+      documentStatus: boolean;
+      issuerIdentity: boolean;
+    };
   };
 };
 
@@ -77,6 +85,30 @@ export default async function CredentialDetailPage({ params }: PageProps) {
                 </time>
               </div>
             </Card>
+            {credential.sourceProvenance ? (
+              <section className="provenance-panel" aria-label="Source provenance">
+                <div>
+                  <span>Source</span>
+                  <strong>{credential.sourceProvenance.sourceType}</strong>
+                </div>
+                <div>
+                  <span>Hash</span>
+                  <strong>{credential.sourceProvenance.sourceFileHash.slice(0, 19)}...</strong>
+                </div>
+                <div>
+                  <span>Verified</span>
+                  <strong>
+                    {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+                      new Date(credential.sourceProvenance.verifiedAt)
+                    )}
+                  </strong>
+                </div>
+                <Badge tone={credential.sourceProvenance.verification.all ? "success" : "warning"}>
+                  {credential.sourceProvenance.verification.all ? "Source verified" : "Partial source checks"}
+                </Badge>
+              </section>
+            ) : null}
+            {credential.disclaimer ? <p className="privacy-note detail-note">{credential.disclaimer}</p> : null}
             {closed ? (
               <EmptyState>This credential can no longer be shared.</EmptyState>
             ) : (

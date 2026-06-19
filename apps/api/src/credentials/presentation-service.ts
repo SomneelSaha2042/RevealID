@@ -10,6 +10,7 @@ import type {
   VerifyCredentialResponse,
   VerifyShareResponse
 } from "@revealid/contracts";
+import { academicClaimKeys, bridgeDisclaimer, derivedSourceProvenanceSchema } from "@revealid/contracts";
 import type { Prisma as PrismaTypes } from "@prisma/client";
 import type { Prisma } from "../db.js";
 import { credentialAad } from "./credential-service.js";
@@ -17,7 +18,7 @@ import { CredentialStatusService } from "./credential-status-service.js";
 import { EnvelopeEncryptionService, type EncryptedEnvelope } from "./envelope-encryption-service.js";
 import { KeyManagementService } from "./key-management-service.js";
 
-const allClaimKeys = ["degree", "graduationYear", "cgpa", "marks"] as const satisfies readonly AcademicClaimKey[];
+const allClaimKeys = academicClaimKeys satisfies readonly AcademicClaimKey[];
 const shareAad = (shareId: string) => `revealid:share:${shareId}`;
 
 const hashToken = (token: string) => createHash("sha256").update(token, "utf8").digest("base64url");
@@ -35,6 +36,34 @@ const publicClaims = (claims: Record<string, unknown>) => {
   return disclosed;
 };
 
+const derivedResponseMetadata = (claims: Record<string, unknown>) => {
+  const disclaimer: typeof bridgeDisclaimer | undefined =
+    claims.bridgeDisclaimer === bridgeDisclaimer ? bridgeDisclaimer : undefined;
+  const provenance = derivedSourceProvenanceSchema.safeParse(claims.sourceProvenance);
+  return {
+    ...(disclaimer ? { disclaimer } : {}),
+    ...(provenance.success ? { sourceProvenance: provenance.data } : {})
+  };
+};
+
+type ShareHistoryRecord = {
+  id: string;
+  credentialId: string;
+  audience: string;
+  expiresAt: Date;
+  maxViews: number;
+  views: number;
+  revokedAt?: Date | null;
+  createdAt: Date;
+  disclosedClaims: string[];
+  credential: {
+    credentialType: string;
+    issuerName: string;
+    expiresAt?: Date | null;
+    revokedAt?: Date | null;
+  };
+};
+
 export class PresentationService {
   constructor(
     private readonly prisma: Prisma,
@@ -46,7 +75,7 @@ export class PresentationService {
   ) {}
 
   async createShare(holderId: string, input: CreateShareRequest): Promise<CreateShareResponse["share"]> {
-    const disclosedClaims = [...new Set(input.claims)];
+    const disclosedClaims = [...new Set(input.claims)] as AcademicClaimKey[];
     const privateClaims = allClaimKeys.filter((claim) => !disclosedClaims.includes(claim));
     const credential = await this.prisma.credential.findFirst({
       where: { id: input.credentialId, holderId },
@@ -80,6 +109,12 @@ export class PresentationService {
       credential.encryptedSdJwt as unknown as EncryptedEnvelope,
       credentialAad(holderId, credential.issuedAt.toISOString())
     );
+    const credentialClaims = await this.crypto.getPresentationClaims(sdJwt);
+    for (const claim of disclosedClaims) {
+      if (!(claim in credentialClaims)) {
+        throw new Error("Claim not found");
+      }
+    }
 
     const presentation = await this.crypto.createPresentation({
       credential: sdJwt,
@@ -139,7 +174,7 @@ export class PresentationService {
       }
     });
 
-    return shares.map((share) => ({
+    return (shares as ShareHistoryRecord[]).map((share) => ({
       id: share.id,
       credentialId: share.credentialId,
       credentialType: share.credential.credentialType,
@@ -350,6 +385,7 @@ export class PresentationService {
       audience: share.audience,
       expiresAt: share.expiresAt.toISOString(),
       claims,
+      ...derivedResponseMetadata(presentationClaims),
       checks
     } satisfies VerifyCredentialResponse;
     await this.auditVerification({

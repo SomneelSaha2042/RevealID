@@ -26,7 +26,18 @@ The Phase 0 academic claims are:
 - `cgpa`
 - `marks`
 
-All four academic claims are issued as selectively disclosable SD-JWT disclosures. Holder-created shares may disclose any permitted subset selected by the holder. Non-selected claims must not appear in the share creation response, share URL, public verifier payload, presentation text, or verified disclosed claims.
+The OpenCerts bridge derived credential type is `com.revealid.derivedAcademicCredential`. It can selectively disclose normalized source claims:
+
+- `recipientName`
+- `institution`
+- `credentialName`
+- `course`
+- `issuedOn`
+- `graduationDate`
+
+The derived credential also carries source provenance and the RevealID-derived proof disclaimer. Transcript rows, grades, NRIC-like identifiers, student ID, transcript ID, and raw source document contents are not included in the derived SD-JWT payload.
+
+All academic and OpenCerts-derived public claim keys are issued as selectively disclosable SD-JWT disclosures. Holder-created shares may disclose any permitted subset selected by the holder. Non-selected claims must not appear in the share creation response, share URL, public verifier claims payload, or verified disclosed claims.
 
 ## Holder Binding
 Public presentations require a key binding JWT signed by the holder key. The verifier policy requires:
@@ -52,6 +63,8 @@ Holder share links use opaque 256-bit random tokens. The database stores only th
 - Disclosed claim names for holder history.
 
 Public verification resolves `/verify/:token` through `POST /credentials/verify`. The API hashes the token, loads the encrypted presentation, enforces missing/cancelled/expired/view-limit states, verifies issuer signature, disclosure digests, holder binding, expected audience, expected nonce, credential expiry, and revocation status, increments the view count, records a privacy-safe audit event, and returns only disclosed claims.
+
+For OpenCerts-derived credentials, the verifier response may also include source provenance and the derived-proof disclaimer as metadata. These fields do not authorize exposing undisclosed academic claims.
 
 Issuer revocation is exposed through `POST /credentials/:id/revoke` and requires the `ISSUER` role. Revoked credentials fail every future verification, including still-active share links.
 

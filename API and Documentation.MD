@@ -284,6 +284,7 @@ Rules:
 
 - Only the holder who created the import can derive from it
 - Import must be verified and not already failed
+- Already-derived imports return a conflict instead of issuing duplicate wallet credentials
 - Derived credentials are signed by RevealID Demo issuer, not the original institution
 - Derived credentials must include source provenance and the disclaimer
 - Derived credentials use existing encrypted credential storage
@@ -315,7 +316,7 @@ Authenticated holder route. Returns non-sensitive metadata only.
 
 Authenticated holder route. Returns credential detail needed to build a share form. It must not return encrypted SD-JWT blobs or private keys.
 
-For derived credentials, response detail should include supported disclosure claim keys and provenance metadata safe for holder review. Future implementation must generalize the current hardcoded core claim enum.
+For derived credentials, response detail includes supported OpenCerts-derived disclosure claim keys such as `recipientName`, `institution`, `credentialName`, `course`, `issuedOn`, and `graduationDate`. Transcript rows, grades, NRIC-like identifiers, student ID, and transcript ID remain hidden by default and are not part of the derived credential payload.
 
 ---
 
@@ -323,7 +324,7 @@ For derived credentials, response detail should include supported disclosure cla
 
 ### `POST /credentials/share`
 
-Authenticated holder route. CSRF-protected. Reused for both existing demo credentials and OpenCerts-derived credentials once claim-key support is generalized.
+Authenticated holder route. CSRF-protected. Reused for both existing demo credentials and OpenCerts-derived credentials.
 
 Current core credential request:
 

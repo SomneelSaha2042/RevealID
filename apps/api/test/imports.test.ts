@@ -19,6 +19,7 @@ type UserRecord = {
   name: string;
   role: "HOLDER" | "ISSUER";
   passwordHash: string;
+  createdAt?: Date;
 };
 
 type SessionRecord = {
@@ -50,10 +51,44 @@ type SourceCredentialImportRecord = {
   verificationSummary?: unknown;
   normalizedClaims?: unknown;
   hiddenByDefault: string[];
-  status: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
+  derivedCredentialId?: string | null;
+  status: "PENDING_VERIFICATION" | "VERIFIED" | "DERIVING" | "FAILED" | "DERIVED";
   failureCode?: string;
   verifiedAt?: Date;
   createdAt: Date;
+};
+
+type CredentialRecord = {
+  id: string;
+  holderId: string;
+  issuerId: string;
+  credentialType: string;
+  issuerName: string;
+  encryptedSdJwt: unknown;
+  issuedAt: Date;
+  expiresAt?: Date | null;
+  revokedAt?: Date | null;
+  createdAt: Date;
+  holder?: UserRecord;
+};
+
+type ShareRecord = {
+  id: string;
+  holderId: string;
+  credentialId: string;
+  tokenHash: string;
+  audience: string;
+  nonce: string;
+  keyBindingIssuedAt: number;
+  encryptedPresentation: unknown;
+  disclosedClaims: string[];
+  privateClaims: string[];
+  expiresAt: Date;
+  maxViews: number;
+  views: number;
+  revokedAt: Date | null;
+  createdAt: Date;
+  credential?: CredentialRecord;
 };
 
 function makePrismaMock() {
@@ -61,12 +96,18 @@ function makePrismaMock() {
   const sessions = new Map<string, SessionRecord>();
   const holderKeys = new Map<string, HolderKeyRecord>();
   const sourceCredentialImports = new Map<string, SourceCredentialImportRecord>();
+  const credentials = new Map<string, CredentialRecord>();
+  const shares = new Map<string, ShareRecord>();
+  const verificationAudits: unknown[] = [];
 
   return {
     users,
     sessions,
     holderKeys,
     sourceCredentialImports,
+    credentials,
+    shares,
+    verificationAudits,
     user: {
       create: async ({ data }: { data: Omit<UserRecord, "id"> }) => {
         const user = { id: randomUUID(), ...data };
@@ -77,7 +118,9 @@ function makePrismaMock() {
         if (where.email) return [...users.values()].find((user) => user.email === where.email) ?? null;
         if (where.id) return users.get(where.id) ?? null;
         return null;
-      }
+      },
+      findFirst: async ({ where }: { where: { role?: "HOLDER" | "ISSUER" } }) =>
+        [...users.values()].find((user) => !where.role || user.role === where.role) ?? null
     },
     refreshSession: {
       create: async ({ data }: { data: Omit<SessionRecord, "id" | "revokedAt" | "rotatedAt"> }) => {
@@ -111,13 +154,97 @@ function makePrismaMock() {
       findUnique: async ({ where }: { where: { userId: string } }) => holderKeys.get(where.userId) ?? null
     },
     credential: {
-      findMany: async () => []
+      create: async ({ data }: { data: Omit<CredentialRecord, "id" | "createdAt" | "revokedAt"> }) => {
+        const credential = { id: randomUUID(), createdAt: new Date(), revokedAt: null, ...data };
+        credentials.set(credential.id, credential);
+        return credential;
+      },
+      findFirst: async ({ where }: { where: { id: string; holderId?: string } }) => {
+        const credential = credentials.get(where.id);
+        if (!credential || (where.holderId && credential.holderId !== where.holderId)) return null;
+        return credential;
+      },
+      findMany: async ({ where }: { where?: { holderId?: string; issuerId?: string } } = {}) =>
+        [...credentials.values()].filter((credential) => {
+          if (where?.holderId) return credential.holderId === where.holderId;
+          if (where?.issuerId) return credential.issuerId === where.issuerId;
+          return true;
+        })
+    },
+    share: {
+      create: async ({ data }: { data: Omit<ShareRecord, "createdAt" | "views" | "revokedAt"> }) => {
+        const share = { createdAt: new Date(), views: 0, revokedAt: null, ...data };
+        shares.set(share.id, share);
+        return share;
+      },
+      findUnique: async ({ where }: { where: { tokenHash: string } }) => {
+        const share = [...shares.values()].find((candidate) => candidate.tokenHash === where.tokenHash);
+        if (!share) return null;
+        const credential = credentials.get(share.credentialId);
+        if (!credential) return null;
+        return {
+          ...share,
+          credential: {
+            ...credential,
+            holder: users.get(credential.holderId)
+          }
+        };
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<ShareRecord> }) => {
+        const share = shares.get(where.id);
+        if (!share) throw new Error("Share not found");
+        const updated = { ...share, ...data };
+        shares.set(where.id, updated);
+        return updated;
+      }
+    },
+    verificationAudit: {
+      create: async ({ data }: { data: unknown }) => {
+        verificationAudits.push(data);
+        return { id: randomUUID(), createdAt: new Date(), data };
+      }
     },
     sourceCredentialImport: {
       create: async ({ data }: { data: Omit<SourceCredentialImportRecord, "id" | "createdAt"> }) => {
         const sourceImport = { id: randomUUID(), createdAt: new Date(), ...data };
         sourceCredentialImports.set(sourceImport.id, sourceImport);
         return sourceImport;
+      },
+      findFirst: async ({ where }: { where: { id: string; holderId: string } }) => {
+        const sourceImport = sourceCredentialImports.get(where.id);
+        if (!sourceImport || sourceImport.holderId !== where.holderId) return null;
+        return sourceImport;
+      },
+      update: async ({
+        where,
+        data
+      }: {
+        where: { id: string };
+        data: Partial<SourceCredentialImportRecord>;
+      }) => {
+        const sourceImport = sourceCredentialImports.get(where.id);
+        if (!sourceImport) throw new Error("OpenCerts import not found");
+        const updated = { ...sourceImport, ...data };
+        sourceCredentialImports.set(where.id, updated);
+        return updated;
+      },
+      updateMany: async ({
+        where,
+        data
+      }: {
+        where: { id: string; holderId?: string; status?: SourceCredentialImportRecord["status"] };
+        data: Partial<SourceCredentialImportRecord>;
+      }) => {
+        const sourceImport = sourceCredentialImports.get(where.id);
+        if (
+          !sourceImport ||
+          (where.holderId && sourceImport.holderId !== where.holderId) ||
+          (where.status && sourceImport.status !== where.status)
+        ) {
+          return { count: 0 };
+        }
+        sourceCredentialImports.set(where.id, { ...sourceImport, ...data });
+        return { count: 1 };
       }
     },
     $disconnect: async () => {}
@@ -368,10 +495,12 @@ describe("OpenCerts import boundary", () => {
         documentIntegrity: false
       }
     });
-    expect([...prisma.sourceCredentialImports.values()][0]).toMatchObject({
+    const failedImport = [...prisma.sourceCredentialImports.values()][0];
+    expect(failedImport).toMatchObject({
       status: "FAILED",
       failureCode: "source_verification_failed"
     });
+    expect(failedImport.normalizedClaims).toBeUndefined();
   });
 
   it("enforces issuer policy after verification", async () => {
@@ -406,16 +535,26 @@ describe("OpenCerts import boundary", () => {
     });
   });
 
-  it("keeps derivation closed until verification is implemented", async () => {
+  it("derives a wallet credential from a verified import", async () => {
     const holderLogin = await app.inject({
       method: "POST",
       url: "/auth/register",
       payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
     });
 
+    const importResponse = await app.inject({
+      method: "POST",
+      url: "/imports/opencerts",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: { fileName: "sepolia.opencert", document: sepoliaFixture }
+    });
+
     const response = await app.inject({
       method: "POST",
-      url: `/imports/opencerts/${randomUUID()}/derive`,
+      url: `/imports/opencerts/${importResponse.json().importId}/derive`,
       headers: {
         cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
         "x-csrf-token": holderLogin.json().csrfToken
@@ -423,8 +562,166 @@ describe("OpenCerts import boundary", () => {
       payload: { credentialTemplate: "GRADUATION_PROOF" }
     });
 
-    expect(response.statusCode).toBe(409);
-    expect(response.json().error).toContain("Phase 3");
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      walletStatus: "STORED",
+      credentialType: "RevealIDDerivedAcademicCredential",
+      vct: "com.revealid.derivedAcademicCredential"
+    });
+    expect(response.json().hiddenByDefault).toEqual(
+      expect.arrayContaining([
+        "academicCredential.transcript",
+        "academicCredential.additionalData.studentId",
+        "academicCredential.additionalData.transcriptId"
+      ])
+    );
+
+    const storedImport = prisma.sourceCredentialImports.get(importResponse.json().importId);
+    expect(storedImport).toMatchObject({
+      status: "DERIVED",
+      derivedCredentialId: response.json().credentialId
+    });
+
+    const walletResponse = await app.inject({
+      method: "GET",
+      url: `/wallet/credentials/${response.json().credentialId}`,
+      headers: { cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]) }
+    });
+    expect(walletResponse.statusCode).toBe(200);
+    expect(walletResponse.json().credential).toMatchObject({
+      credentialType: "RevealIDDerivedAcademicCredential",
+      claims: {
+        recipientName: "Your Name",
+        institution: "Opencerts",
+        credentialName: "Opencerts Demo Certificate",
+        course: "OpenCerts Demo",
+        graduationDate: "2025-08-01T00:00:00+08:00"
+      }
+    });
+    expect(JSON.stringify(walletResponse.json())).not.toContain("A+");
+    expect(JSON.stringify(walletResponse.json())).not.toContain("123456");
+    expect(JSON.stringify(walletResponse.json())).not.toContain("001");
+  });
+
+  it("does not issue duplicate credentials for repeated derive requests", async () => {
+    const holderLogin = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
+    });
+
+    const importResponse = await app.inject({
+      method: "POST",
+      url: "/imports/opencerts",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: { fileName: "sepolia.opencert", document: sepoliaFixture }
+    });
+
+    const deriveRequest = () =>
+      app.inject({
+        method: "POST",
+        url: `/imports/opencerts/${importResponse.json().importId}/derive`,
+        headers: {
+          cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+          "x-csrf-token": holderLogin.json().csrfToken
+        },
+        payload: { credentialTemplate: "GRADUATION_PROOF" }
+      });
+
+    const responses = await Promise.all([deriveRequest(), deriveRequest()]);
+    const statuses = responses.map((response) => response.statusCode).sort();
+
+    expect(statuses).toEqual([201, 409]);
+    expect(prisma.credentials.size).toBe(1);
+    expect(prisma.sourceCredentialImports.get(importResponse.json().importId)).toMatchObject({
+      status: "DERIVED",
+      derivedCredentialId: responses.find((response) => response.statusCode === 201)?.json().credentialId
+    });
+  });
+
+  it("shares derived credential claims without leaking hidden OpenCerts fields", async () => {
+    const holderLogin = await app.inject({
+      method: "POST",
+      url: "/auth/register",
+      payload: { email: "holder@example.edu", name: "Holder", password: "HolderPass123!" }
+    });
+    const importResponse = await app.inject({
+      method: "POST",
+      url: "/imports/opencerts",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: { fileName: "sepolia.opencert", document: sepoliaFixture }
+    });
+    const deriveResponse = await app.inject({
+      method: "POST",
+      url: `/imports/opencerts/${importResponse.json().importId}/derive`,
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: { credentialTemplate: "GRADUATION_PROOF" }
+    });
+
+    const shareResponse = await app.inject({
+      method: "POST",
+      url: "/credentials/share",
+      headers: {
+        cookie: cookieHeader(holderLogin.headers["set-cookie"] as string[]),
+        "x-csrf-token": holderLogin.json().csrfToken
+      },
+      payload: {
+        credentialId: deriveResponse.json().credentialId,
+        claims: ["recipientName", "institution", "course", "graduationDate"],
+        ttlMinutes: 30,
+        maxViews: 1
+      }
+    });
+    expect(shareResponse.statusCode).toBe(201);
+    expect(shareResponse.json().share.disclosedClaims).toEqual([
+      "recipientName",
+      "institution",
+      "course",
+      "graduationDate"
+    ]);
+    expect(JSON.stringify(shareResponse.json())).not.toContain("A+");
+    expect(JSON.stringify(shareResponse.json())).not.toContain("123456");
+    expect(JSON.stringify(shareResponse.json())).not.toContain("001");
+
+    const token = new URL(shareResponse.json().share.verificationUrl).pathname.split("/").at(-1) ?? "";
+    const verifyResponse = await app.inject({ method: "GET", url: `/shares/verify/${token}` });
+
+    expect(verifyResponse.statusCode).toBe(200);
+    expect(verifyResponse.json()).toMatchObject({
+      status: "verified",
+      credentialType: "RevealIDDerivedAcademicCredential",
+      claims: {
+        recipientName: "Your Name",
+        institution: "Opencerts",
+        course: "OpenCerts Demo",
+        graduationDate: "2025-08-01T00:00:00+08:00"
+      },
+      sourceProvenance: {
+        sourceType: "OPENCERTS_V2",
+        verification: {
+          all: true,
+          documentIntegrity: true,
+          documentStatus: true,
+          issuerIdentity: true
+        }
+      },
+      disclaimer: bridgeDisclaimer
+    });
+    expect(verifyResponse.json().claims).not.toHaveProperty("credentialName");
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("A+");
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("123456");
+    expect(JSON.stringify(verifyResponse.json())).not.toContain("001");
+    expect(JSON.stringify(prisma.verificationAudits)).not.toContain("Your Name");
+    expect(JSON.stringify(prisma.verificationAudits)).not.toContain("OpenCerts Demo");
   });
 });
 

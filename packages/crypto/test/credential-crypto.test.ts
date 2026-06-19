@@ -17,7 +17,7 @@ const vct = "RevealIDAcademicCredential";
 
 const disclosureFrame: DisclosureFrame<AcademicCredentialPayload> = {
   _sd: ["degree", "graduationYear", "cgpa", "marks"]
-};
+} as unknown as DisclosureFrame<AcademicCredentialPayload>;
 
 const presentationFrame: PresentationFrame<AcademicCredentialPayload> = {
   degree: true,

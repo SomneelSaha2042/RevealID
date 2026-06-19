@@ -15,6 +15,7 @@ enum Role {
 enum SourceCredentialImportStatus {
   PENDING_VERIFICATION
   VERIFIED
+  DERIVING
   FAILED
   DERIVED
 }

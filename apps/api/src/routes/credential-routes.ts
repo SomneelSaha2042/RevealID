@@ -1,5 +1,6 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
+  academicClaimKeys,
   createShareRequestSchema,
   createShareResponseSchema,
   credentialDetailResponseSchema,
@@ -82,7 +83,7 @@ export async function registerCredentialRoutes(
       issuer: options.issuerId,
       name: options.issuerName,
       jwksUri: new URL("/.well-known/jwks.json", options.issuerId).toString(),
-      credentialTypes: ["RevealIDAcademicCredential"]
+      credentialTypes: ["RevealIDAcademicCredential", "RevealIDDerivedAcademicCredential"]
     })
   );
 
@@ -302,7 +303,7 @@ export async function registerCredentialRoutes(
             claims: {
               type: "array",
               minItems: 1,
-              items: { type: "string", enum: ["degree", "graduationYear", "cgpa", "marks"] }
+              items: { type: "string", enum: [...academicClaimKeys] }
             },
             audience: { type: "string", minLength: 1, maxLength: 240 },
             ttlMinutes: { type: "integer", minimum: 5, maximum: 43200 },
@@ -370,9 +371,15 @@ export async function registerCredentialRoutes(
   );
 
   const verificationAttempts = new Map<string, { count: number; resetAt: number }>();
-  const verifyRateLimit = () => {
+  const clientAddress = (request: FastifyRequest) => {
+    const forwardedFor = request.headers["x-forwarded-for"];
+    const forwardedAddress = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+    const address = (forwardedAddress?.split(",")[0]?.trim() || request.ip || "unknown").replace(/^::ffff:/, "");
+    const ipv4WithPort = address.match(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/);
+    return ipv4WithPort ? ipv4WithPort[1] : address;
+  };
+  const verifyRateLimit = (key: string) => {
     const now = Date.now();
-    const key = "public-credential-verify";
     const current = verificationAttempts.get(key);
     if (!current || current.resetAt <= now) {
       verificationAttempts.set(key, { count: 1, resetAt: now + 60_000 });
@@ -395,7 +402,7 @@ export async function registerCredentialRoutes(
         }
       },
       preHandler: async (request, reply) => {
-        const rateLimitResult = verifyRateLimit();
+        const rateLimitResult = verifyRateLimit(`verify:${clientAddress(request)}`);
         if (!rateLimitResult.allowed) {
           return reply
             .code(429)
@@ -429,6 +436,21 @@ export async function registerCredentialRoutes(
   app.get(
     "/shares/verify/:token",
     {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: "1 minute"
+        }
+      },
+      preHandler: async (request, reply) => {
+        const rateLimitResult = verifyRateLimit(`share:${clientAddress(request)}`);
+        if (!rateLimitResult.allowed) {
+          return reply
+            .code(429)
+            .header("retry-after", String(rateLimitResult.retryAfterSeconds))
+            .send({ error: "Rate limit exceeded" });
+        }
+      },
       schema: {
         params: {
           type: "object",

@@ -28,9 +28,9 @@ The OpenCerts bridge is being added in phases:
 | 0. Baseline lock | Complete | Existing RevealID gates pass before bridge work |
 | 1. Import boundary | Complete | Authenticated holder import route, import persistence, safe metadata-only response |
 | 2. Verification and normalization | Complete | TrustVC-backed source verification, OpenCerts fixture, issuer policy, normalized safe preview |
-| 3. Derived credential issuance | Next | Verified imports become RevealID-derived SD-JWT wallet credentials |
-| 4. Wallet/share/verifier UX | Planned | End-to-end import, derive, share, and verify UI |
-| 5. Hardening and demo | Planned | Redaction checks, demo script, deployment smoke, production-ready narrative |
+| 3. Derived credential issuance | Complete | Verified imports become RevealID-derived SD-JWT wallet credentials |
+| 4. Wallet/share/verifier UX | Complete | End-to-end import, derive, share, and verify UI |
+| 5. Hardening and demo | In progress | Redaction checks, duplicate-derive protection, deployment smoke, production-ready narrative |
 
 ## Product Idea
 
@@ -53,7 +53,7 @@ For the student-led MVP, the source fixture is the public OpenCerts `sepolia.ope
 - Normalizes salted OpenAttestation values into a safe academic claim preview.
 - Enforces issuer policy modes: `DEMO` and `INSTITUTION_ONLY`.
 - Keeps transcript rows, grades, NRIC-like identifiers, student ID, and transcript ID hidden by default.
-- Uses the existing RevealID SD-JWT wallet as the downstream selective-disclosure layer.
+- Derives verified imports into encrypted RevealID SD-JWT wallet credentials with source provenance.
 - Creates holder-bound public presentations with audience, nonce, expiry, and max-view policy.
 - Returns only disclosed claims to verifiers.
 
@@ -181,7 +181,7 @@ Swagger UI is available at `/docs`. Browser calls go through the web app's first
 | Auth | `POST /auth/login` | Start a cookie-backed session |
 | Auth | `GET /me` | Read the current authenticated user |
 | Imports | `POST /imports/opencerts` | Verify and normalize an OpenCerts source document |
-| Imports | `POST /imports/opencerts/:importId/derive` | Phase 3: derive a wallet credential from a verified import |
+| Imports | `POST /imports/opencerts/:importId/derive` | Derive a wallet credential from a verified import |
 | Issuer | `POST /credentials/issue` | Existing demo issuer SD-JWT credential flow |
 | Issuer | `GET /issuer/credentials` | List issuer-owned credential metadata |
 | Issuer | `POST /credentials/:id/revoke` | Revoke a credential |
@@ -225,7 +225,7 @@ The test suite covers:
 ```text
 apps/
   api/          Fastify API, Prisma schema, auth, routes, imports, credential services
-  web/          Next.js issuer, holder, sharing, and verifier UI
+  web/          Next.js issuer, holder, import, sharing, and verifier UI
 packages/
   contracts/    Shared Zod request and response schemas
   crypto/       SD-JWT issuance, presentation, and verification service
@@ -247,12 +247,65 @@ RevealID is deployed on Railway as separate web, API, and PostgreSQL services. T
 
 Production requires real values for auth token secrets, the credential encryption key, and the issuer private JWK. `.env.example` is intentionally local/demo-safe.
 
+Before production smoke testing, confirm the API service has run:
+
+```bash
+corepack pnpm --filter @revealid/api prisma:migrate
+corepack pnpm --filter @revealid/api db:seed
+```
+
+The seed creates the demo issuer required for derived credential issuance. Do not use the seeded passwords for a real public deployment.
+
 OpenCerts production validation becomes meaningful in stages:
 
-- Phase 2: verify and normalize source imports in production.
-- Phase 3: derive wallet credentials from verified imports.
-- Phase 4: complete import, derive, share, and verify product flow.
+- Phase 3: verify, normalize, and derive wallet credentials from source imports.
+- Phase 4: complete import, derive, share, and verify product flow in the UI.
 - Phase 5: public demo and external-review readiness.
+
+## Production Smoke Test
+
+Use the public sample in `samples/opencerts/sepolia.opencert` for MVP validation. Keep `OPENCERTS_VERIFICATION_MODE=LOCAL_TRUSTVC`, `OPENCERTS_ISSUER_POLICY_MODE=DEMO`, and `OPENCERTS_RETAIN_SOURCE=false` unless you are explicitly testing the external API fallback.
+
+Critical workflows:
+
+1. Health and docs
+   - API `/health` returns `{"status":"ok"}`.
+   - API `/docs` loads without auth.
+   - Web app loads the home page and the `/wallet/import` route.
+
+2. Auth and role boundaries
+   - Register a new holder account.
+   - Log out and log back in.
+   - Confirm a holder cannot access issuer-only issuance routes.
+   - Confirm an unauthenticated import request is rejected.
+
+3. OpenCerts import and derive
+   - Sign in as a holder.
+   - Upload `samples/opencerts/sepolia.opencert` on `/wallet/import`.
+   - Confirm the UI shows verified source metadata, normalized preview claims, hidden-by-default fields, and the RevealID-derived disclaimer.
+   - Click derive once and confirm a wallet credential is created.
+   - Click derive again or refresh/retry and confirm no duplicate credential is minted.
+
+4. Wallet privacy
+   - Open the derived credential in the wallet.
+   - Confirm source provenance and disclaimer are visible to the holder.
+   - Confirm hidden fields such as transcript rows, grades, student ID, transcript ID, and raw source document content are not displayed as shareable public claims.
+
+5. Selective sharing
+   - Share only `recipientName`, `institution`, `credentialName`, and optionally `course`.
+   - Open the verification link in a private/incognito browser.
+   - Confirm the verifier sees only selected claims, plus the derived-proof disclaimer and source provenance.
+   - Confirm undisclosed values do not appear in the verifier response or page source.
+
+6. Negative and security checks
+   - Try a malformed JSON upload and confirm a controlled rejection.
+   - Try a tampered copy of the sample and confirm verification fails before derivation.
+   - Create a max-view `1` share, verify it once, then confirm the second verification fails.
+   - Cancel a share and confirm verification fails.
+   - Confirm browser storage does not contain access or refresh tokens.
+   - Review API logs and confirm there are no raw share tokens, full credentials, full presentations, passwords, private keys, or full source documents.
+
+Known local validation gap: `corepack pnpm test:e2e` may require a working local PostgreSQL/Prisma engine setup. The Vitest integration suite covers the import, derive, share, verification, privacy, tampering, revocation, and duplicate-derive paths; run Playwright in the deployed environment or a fully provisioned local stack before treating the deployment as production-ready.
 
 ## Product Feasibility
 

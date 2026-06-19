@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
 import {
   bridgeDisclaimer,
+  deriveFromOpenCertsImportResponseSchema,
   importOpenCertsFailureResponseSchema,
   importOpenCertsVerifiedResponseSchema,
+  normalizedOpenCertsClaimsSchema,
   opencertsHiddenByDefault,
+  opencertsVerificationSummarySchema,
+  type DeriveFromOpenCertsImportResponse,
   type ImportOpenCertsFailureResponse,
   type ImportOpenCertsRequest,
   type ImportOpenCertsVerifiedResponse,
@@ -14,6 +18,7 @@ import { AcademicClaimNormalizer } from "./academic-claim-normalizer.js";
 import { IssuerPolicyError, OpenCertsIssuerPolicy } from "./issuer-policy.js";
 import type { SourceCredentialVerifier } from "./source-credential-verification-service.js";
 import type { NormalizedOpenCertsClaims } from "@revealid/contracts";
+import type { CredentialService } from "../credentials/credential-service.js";
 
 type SourceCredentialImportCreateInput = {
   holderId: string;
@@ -26,7 +31,7 @@ type SourceCredentialImportCreateInput = {
   hiddenByDefault: string[];
   encryptedSourceDocument?: unknown;
   sourceRetentionExpiresAt?: Date;
-  status: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
+  status: SourceCredentialImportStatus;
   failureCode?: string;
   verifiedAt?: Date;
 };
@@ -34,13 +39,27 @@ type SourceCredentialImportCreateInput = {
 type SourceCredentialImportRecord = SourceCredentialImportCreateInput & {
   id: string;
   createdAt: Date;
+  derivedCredentialId?: string | null;
 };
 
 export type SourceCredentialImportPrisma = {
   sourceCredentialImport: {
     create(input: { data: SourceCredentialImportCreateInput }): Promise<SourceCredentialImportRecord>;
+    findFirst(input: {
+      where: { id: string; holderId: string };
+    }): Promise<SourceCredentialImportRecord | null>;
+    updateMany(input: {
+      where: { id: string; holderId?: string; status?: SourceCredentialImportStatus };
+      data: Partial<Pick<SourceCredentialImportRecord, "status" | "derivedCredentialId">>;
+    }): Promise<{ count: number }>;
+    update(input: {
+      where: { id: string };
+      data: Partial<Pick<SourceCredentialImportRecord, "status" | "derivedCredentialId">>;
+    }): Promise<SourceCredentialImportRecord>;
   };
 };
+
+type SourceCredentialImportStatus = "PENDING_VERIFICATION" | "VERIFIED" | "DERIVING" | "FAILED" | "DERIVED";
 
 export class OpenCertsImportError extends Error {
   constructor(
@@ -49,6 +68,16 @@ export class OpenCertsImportError extends Error {
   ) {
     super(response.message);
     this.name = "OpenCertsImportError";
+  }
+}
+
+export class OpenCertsDerivationError extends Error {
+  constructor(
+    readonly statusCode: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "OpenCertsDerivationError";
   }
 }
 
@@ -65,6 +94,7 @@ export class OpenCertsImportService {
     private readonly verifier: SourceCredentialVerifier,
     private readonly normalizer: AcademicClaimNormalizer,
     private readonly issuerPolicy: OpenCertsIssuerPolicy,
+    private readonly credentialService: CredentialService,
     private readonly options: {
       defaultVerificationMode: OpenCertsVerificationMode;
       defaultIssuerPolicyMode: OpenCertsIssuerPolicyMode;
@@ -87,8 +117,6 @@ export class OpenCertsImportService {
     const verificationMode = input.verificationMode ?? this.options.defaultVerificationMode;
     const issuerPolicyMode = input.issuerPolicyMode ?? this.options.defaultIssuerPolicyMode;
     const sourceFileHash = `sha256:${createHash("sha256").update(serializedDocument, "utf8").digest("hex")}`;
-    const normalized = this.normalizer.normalize(input.document);
-    const safeNormalizedClaims = previewClaims(normalized.claims);
 
     let verification;
     try {
@@ -102,7 +130,6 @@ export class OpenCertsImportService {
           verificationMode,
           issuerPolicyMode,
           hiddenByDefault: [...opencertsHiddenByDefault],
-          normalizedClaims: safeNormalizedClaims,
           status: "FAILED",
           failureCode: "external_verification_unavailable"
         }
@@ -128,7 +155,6 @@ export class OpenCertsImportService {
           verificationMode,
           issuerPolicyMode,
           verificationSummary: verification.summary,
-          normalizedClaims: safeNormalizedClaims,
           hiddenByDefault: [...opencertsHiddenByDefault],
           status: "FAILED",
           failureCode: "source_verification_failed"
@@ -146,6 +172,9 @@ export class OpenCertsImportService {
         422
       );
     }
+
+    const normalized = this.normalizer.normalize(input.document);
+    const safeNormalizedClaims = previewClaims(normalized.claims);
 
     try {
       this.issuerPolicy.enforce(issuerPolicyMode, normalized);
@@ -212,5 +241,63 @@ export class OpenCertsImportService {
       hiddenByDefault: [...opencertsHiddenByDefault],
       disclaimer: bridgeDisclaimer
     });
+  }
+
+  async deriveFromImport(holderId: string, importId: string): Promise<DeriveFromOpenCertsImportResponse> {
+    const sourceImport = await this.prisma.sourceCredentialImport.findFirst({
+      where: { id: importId, holderId }
+    });
+    if (!sourceImport) {
+      throw new OpenCertsDerivationError(404, "OpenCerts import not found");
+    }
+    if (sourceImport.status === "DERIVED") {
+      throw new OpenCertsDerivationError(409, "OpenCerts import has already been derived");
+    }
+    if (sourceImport.status === "DERIVING") {
+      throw new OpenCertsDerivationError(409, "OpenCerts import derivation is already in progress");
+    }
+    if (sourceImport.status !== "VERIFIED") {
+      throw new OpenCertsDerivationError(409, "OpenCerts import must be verified before derivation");
+    }
+    if (!sourceImport.normalizedClaims || !sourceImport.verificationSummary || !sourceImport.verifiedAt) {
+      throw new OpenCertsDerivationError(409, "OpenCerts import is missing verified source metadata");
+    }
+
+    const normalizedClaims = normalizedOpenCertsClaimsSchema.parse(sourceImport.normalizedClaims);
+    const verificationSummary = opencertsVerificationSummarySchema.parse(sourceImport.verificationSummary);
+    const claim = await this.prisma.sourceCredentialImport.updateMany({
+      where: { id: sourceImport.id, holderId, status: "VERIFIED" },
+      data: { status: "DERIVING" }
+    });
+    if (claim.count !== 1) {
+      throw new OpenCertsDerivationError(409, "OpenCerts import derivation is already in progress");
+    }
+
+    let response: DeriveFromOpenCertsImportResponse;
+    try {
+      response = await this.credentialService.issueDerivedAcademicCredential({
+        holderId,
+        sourceType: sourceImport.sourceType,
+        sourceFileHash: sourceImport.sourceFileHash,
+        verifiedAt: sourceImport.verifiedAt,
+        verificationSummary,
+        normalizedClaims
+      });
+      await this.prisma.sourceCredentialImport.update({
+        where: { id: sourceImport.id },
+        data: {
+          status: "DERIVED",
+          derivedCredentialId: response.credentialId
+        }
+      });
+    } catch (error) {
+      await this.prisma.sourceCredentialImport.updateMany({
+        where: { id: sourceImport.id, holderId, status: "DERIVING" },
+        data: { status: "VERIFIED" }
+      });
+      throw error;
+    }
+
+    return deriveFromOpenCertsImportResponseSchema.parse(response);
   }
 }

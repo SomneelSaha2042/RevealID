@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import path from "node:path";
 
 const issuerEmail = "issuer@demo-university.edu";
 const issuerPassword = "DemoIssuerPass123!";
@@ -87,14 +88,53 @@ test("privacy path never renders hidden CGPA or marks in the verifier", async ({
 
   await page.goto(verificationUrl);
   await expect(page.getByText("Cryptographically Verified")).toBeVisible();
-  await expect(page.getByText("degree")).toBeVisible();
-  await expect(page.getByText("graduationYear")).toBeVisible();
+  await expect(page.getByText("Degree")).toBeVisible();
+  await expect(page.getByText("Graduation year")).toBeVisible();
   await expect(page.getByText("CGPA")).toHaveCount(0);
   await expect(page.getByText("cgpa")).toHaveCount(0);
   await expect(page.getByText("Marks")).toHaveCount(0);
   await expect(page.getByText("marks")).toHaveCount(0);
   await expect(page.getByText("4.72")).toHaveCount(0);
   await expect(page.getByText("9120")).toHaveCount(0);
+});
+
+test("holder imports OpenCerts, derives a wallet credential, and shares selected claims only", async ({ page }) => {
+  const holderEmail = uniqueHolder();
+
+  await registerHolder(page, holderEmail);
+  await page.goto("/wallet/import");
+  await page
+    .getByLabel("OpenCerts file")
+    .setInputFiles(path.join(process.cwd(), "samples", "opencerts", "sepolia.opencert"));
+  await page.getByRole("button", { name: "Verify source" }).click();
+  await expect(page.getByRole("heading", { name: "Verified source" })).toBeVisible();
+  await expect(page.getByText("Hidden by Default")).toBeVisible();
+  await expect(page.getByText("academicCredential.transcript")).toBeVisible();
+  await page.getByRole("button", { name: "Store in wallet" }).click();
+  await expect(page.getByRole("link", { name: "Open credential" })).toBeVisible();
+  await page.getByRole("link", { name: "Open credential" }).click();
+
+  await expect(page.getByRole("heading", { name: "Share credential" })).toBeVisible();
+  await expect(page.getByText("Source verified")).toBeVisible();
+  await expect(page.getByLabel("Recipient")).toBeChecked();
+  await expect(page.getByLabel("Institution")).toBeChecked();
+  await expect(page.getByLabel("Course")).toBeChecked();
+  await expect(page.getByLabel("Graduation date")).toBeChecked();
+  await page.getByRole("button", { name: "Create secure share" }).click();
+  await expect(page.getByRole("heading", { name: "Verification link" })).toBeVisible();
+
+  const href = await page.locator(".share-result a").getAttribute("href");
+  expect(href).toBeTruthy();
+  await page.goto(href!);
+  await expect(page.getByText("Cryptographically Verified")).toBeVisible();
+  await expect(page.getByText("Recipient")).toBeVisible();
+  await expect(page.getByText("Your Name")).toBeVisible();
+  await expect(page.getByText("Course")).toBeVisible();
+  await expect(page.getByText("OpenCerts Demo")).toBeVisible();
+  await expect(page.getByText("Credential", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("A+")).toHaveCount(0);
+  await expect(page.getByText("123456")).toHaveCount(0);
+  await expect(page.getByText("001")).toHaveCount(0);
 });
 
 test("security failure path shows revoked credentials as invalid", async ({ page }) => {

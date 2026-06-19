@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { Upload } from "lucide-react";
 import { AppShell } from "../../components/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { ButtonLink } from "../../components/ui/button";
@@ -45,6 +46,14 @@ export default async function WalletPage() {
       eyebrow="Holder"
       title="Wallet"
     >
+        {authenticated ? (
+          <div className="wallet-actions">
+            <ButtonLink href="/wallet/import" variant="secondary">
+              <Upload aria-hidden="true" size={16} />
+              Import OpenCerts
+            </ButtonLink>
+          </div>
+        ) : null}
         {!authenticated ? <EmptyState>Sign in as a holder to view wallet credentials.</EmptyState> : null}
         {authenticated && credentials.length === 0 ? <EmptyState>No credentials in this wallet.</EmptyState> : null}
         {credentials.length > 0 ? (

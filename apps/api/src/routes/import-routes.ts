@@ -1,11 +1,21 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
   deriveFromOpenCertsImportRequestSchema,
+  deriveFromOpenCertsImportResponseSchema,
   importOpenCertsFailureResponseSchema,
   importOpenCertsResponseSchema,
   importOpenCertsRequestSchema
 } from "@revealid/contracts";
-import { OpenCertsImportError, type OpenCertsImportService } from "../imports/opencerts-import-service.js";
+import {
+  OpenCertsDerivationError,
+  OpenCertsImportError,
+  type OpenCertsImportService
+} from "../imports/opencerts-import-service.js";
+
+const deriveParamsSchema = z.object({
+  importId: z.string().uuid()
+});
 
 export async function registerImportRoutes(
   app: FastifyInstance,
@@ -97,10 +107,21 @@ export async function registerImportRoutes(
       }
     },
     async (request, reply) => {
+      const holderId = request.user?.id;
+      if (!holderId) {
+        return reply.code(401).send({ error: "Unauthenticated" });
+      }
+      const params = deriveParamsSchema.parse(request.params);
       deriveFromOpenCertsImportRequestSchema.parse(request.body);
-      return reply.code(409).send({
-        error: "OpenCerts import derivation starts in Phase 3 after Phase 2 verification is available"
-      });
+      try {
+        const response = await options.openCertsImportService.deriveFromImport(holderId, params.importId);
+        return reply.code(201).send(deriveFromOpenCertsImportResponseSchema.parse(response));
+      } catch (error) {
+        if (error instanceof OpenCertsDerivationError) {
+          return reply.code(error.statusCode).send({ error: error.message });
+        }
+        throw error;
+      }
     }
   );
 }

@@ -18,12 +18,7 @@ import {
 } from "jose";
 import type { JWK } from "jose";
 
-export type AcademicCredentialClaims = {
-  degree: string;
-  graduationYear: number;
-  cgpa: number;
-  marks: number;
-};
+export type AcademicCredentialClaims = Record<string, unknown>;
 
 export type HolderBinding = {
   audience: string;

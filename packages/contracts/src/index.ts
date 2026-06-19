@@ -72,19 +72,23 @@ export const issuerCredentialListResponseSchema = z.object({
   credentials: z.array(issuerCredentialSchema)
 });
 
-export const academicClaimKeySchema = z.enum(["degree", "graduationYear", "cgpa", "marks"]);
+export const academicClaimKeys = [
+  "degree",
+  "graduationYear",
+  "cgpa",
+  "marks",
+  "recipientName",
+  "institution",
+  "credentialName",
+  "course",
+  "issuedOn",
+  "graduationDate"
+] as const;
+
+export const academicClaimKeySchema = z.enum(academicClaimKeys);
 export type AcademicClaimKey = z.infer<typeof academicClaimKeySchema>;
 
-export const credentialDetailResponseSchema = z.object({
-  credential: walletCredentialSchema.extend({
-    claims: z.object({
-      degree: z.string(),
-      graduationYear: z.number().int(),
-      cgpa: z.number(),
-      marks: z.number().int()
-    })
-  })
-});
+export const academicClaimValueSchema = z.union([z.string(), z.number()]);
 
 export const createShareRequestSchema = z.object({
   credentialId: z.string().uuid(),
@@ -125,6 +129,29 @@ export const shareHistoryResponseSchema = z.object({
   shares: z.array(shareHistoryItemSchema)
 });
 
+export const bridgeDisclaimer =
+  "This is a RevealID-derived proof created from a user-provided OpenCerts file. It is not an official credential issued by the original institution.";
+
+export const derivedSourceProvenanceSchema = z.object({
+  sourceType: z.string().min(1),
+  sourceFileHash: z.string().min(1),
+  verifiedAt: z.string().datetime(),
+  verification: z.object({
+    all: z.boolean(),
+    documentIntegrity: z.boolean(),
+    documentStatus: z.boolean(),
+    issuerIdentity: z.boolean()
+  })
+});
+
+export const credentialDetailResponseSchema = z.object({
+  credential: walletCredentialSchema.extend({
+    claims: z.record(academicClaimKeySchema, academicClaimValueSchema),
+    disclaimer: z.literal(bridgeDisclaimer).optional(),
+    sourceProvenance: derivedSourceProvenanceSchema.optional()
+  })
+});
+
 export const verifyShareResponseSchema = z.object({
   status: z.literal("verified"),
   credentialType: z.string(),
@@ -132,7 +159,9 @@ export const verifyShareResponseSchema = z.object({
   issuedAt: z.string().datetime(),
   audience: z.string(),
   expiresAt: z.string().datetime(),
-  claims: z.record(academicClaimKeySchema, z.union([z.string(), z.number()]))
+  claims: z.record(academicClaimKeySchema, academicClaimValueSchema),
+  disclaimer: z.literal(bridgeDisclaimer).optional(),
+  sourceProvenance: derivedSourceProvenanceSchema.optional()
 });
 
 export const verificationFailureCodeSchema = z.enum([
@@ -204,7 +233,7 @@ export const opencertsImportStatusSchema = z.enum([
 export type OpenCertsImportStatus = z.infer<typeof opencertsImportStatusSchema>;
 
 export const importOpenCertsRequestSchema = z.object({
-  fileName: z.string().min(1).max(240).refine((value) => value.toLowerCase().endsWith(".opencert"), {
+  fileName: z.string().min(1).max(240).refine((value: string) => value.toLowerCase().endsWith(".opencert"), {
     message: "fileName must end with .opencert"
   }),
   document: z.record(z.unknown()),
@@ -212,9 +241,6 @@ export const importOpenCertsRequestSchema = z.object({
   issuerPolicyMode: opencertsIssuerPolicyModeSchema.optional(),
   retainEncryptedSource: z.boolean().optional()
 });
-
-export const bridgeDisclaimer =
-  "This is a RevealID-derived proof created from a user-provided OpenCerts file. It is not an official credential issued by the original institution.";
 
 export const opencertsHiddenByDefault = [
   "recipient.nric",
