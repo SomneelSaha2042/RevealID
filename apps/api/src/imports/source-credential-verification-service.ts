@@ -79,10 +79,6 @@ export class SourceCredentialVerificationService implements SourceCredentialVeri
 
     try {
       signatureValid = await trustVc.verifyOASignature(document);
-      fragments = await trustVc.verifyDocument(
-        document,
-        this.options.rpcProviderUrl ? { rpcProviderUrl: this.options.rpcProviderUrl } : undefined
-      );
     } catch (error) {
       fragments = [
         {
@@ -92,6 +88,31 @@ export class SourceCredentialVerificationService implements SourceCredentialVeri
           reason: error instanceof Error ? error.message : "Unknown TrustVC verification error"
         }
       ];
+    }
+
+    if (signatureValid) {
+      try {
+        fragments = await trustVc.verifyDocument(
+          document,
+          this.options.rpcProviderUrl ? { rpcProviderUrl: this.options.rpcProviderUrl } : undefined
+        );
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "Unknown TrustVC verification error";
+        fragments = [
+          {
+            type: "DOCUMENT_STATUS",
+            name: "TrustVC",
+            status: "ERROR",
+            reason
+          },
+          {
+            type: "ISSUER_IDENTITY",
+            name: "TrustVC",
+            status: "ERROR",
+            reason
+          }
+        ];
+      }
     }
 
     const summary = summarizeFragments(fragments, signatureValid);
