@@ -36,6 +36,9 @@ export const unwrapOpenAttestationValues = (input: unknown): unknown => {
 
 const stringValue = (value: unknown) => (typeof value === "string" && value.length > 0 ? value : undefined);
 
+const isOpenCertsDemoIssuer = (issuerName?: string, identityLocation?: string) =>
+  issuerName === "Opencerts" && (identityLocation === "dev.opencerts.io" || identityLocation === "opencerts.io");
+
 export class AcademicClaimNormalizer {
   normalize(document: unknown): {
     claims: NormalizedOpenCertsClaims;
@@ -90,7 +93,7 @@ export class AcademicClaimNormalizer {
       claims,
       originalIssuerName,
       originalIdentityLocation,
-      sampleMode: originalIssuerName === "Opencerts" && originalIdentityLocation === "dev.opencerts.io"
+      sampleMode: isOpenCertsDemoIssuer(originalIssuerName, originalIdentityLocation)
     };
   }
 }

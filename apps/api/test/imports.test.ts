@@ -791,4 +791,23 @@ describe("OpenCerts source helpers", () => {
     expect(() => policy.enforce("DEMO", normalized)).not.toThrow();
     expect(() => policy.enforce("INSTITUTION_ONLY", normalized)).toThrow(IssuerPolicyError);
   });
+
+  it("recognizes public OpenCerts demo issuers in demo policy mode", () => {
+    const normalized = new AcademicClaimNormalizer().normalize({
+      data: {
+        issuers: [
+          {
+            name: "Opencerts",
+            identityProof: {
+              location: "opencerts.io"
+            }
+          }
+        ]
+      }
+    });
+    const policy = new OpenCertsIssuerPolicy();
+
+    expect(normalized.sampleMode).toBe(true);
+    expect(() => policy.enforce("DEMO", normalized)).not.toThrow();
+  });
 });
