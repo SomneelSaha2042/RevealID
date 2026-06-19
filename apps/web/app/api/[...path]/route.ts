@@ -10,6 +10,8 @@ const hopByHopHeaders = new Set([
   "upgrade"
 ]);
 
+const decodedResponseHeaders = new Set(["content-encoding", "content-length"]);
+
 type RouteContext = {
   params: Promise<{ path: string[] }>;
 };
@@ -25,6 +27,7 @@ async function proxy(request: Request, context: RouteContext) {
   for (const header of hopByHopHeaders) {
     headers.delete(header);
   }
+  headers.set("accept-encoding", "identity");
   headers.set("host", upstreamUrl.host);
 
   const response = await fetch(upstreamUrl, {
@@ -36,6 +39,9 @@ async function proxy(request: Request, context: RouteContext) {
 
   const responseHeaders = new Headers(response.headers);
   for (const header of hopByHopHeaders) {
+    responseHeaders.delete(header);
+  }
+  for (const header of decodedResponseHeaders) {
     responseHeaders.delete(header);
   }
 
