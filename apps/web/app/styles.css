@@ -710,6 +710,8 @@ textarea:focus {
 }
 
 .derive-panel {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
@@ -773,10 +775,16 @@ textarea:focus {
 
 .privacy-split li {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   color: var(--muted);
+}
+
+.privacy-split li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .privacy-split strong {
