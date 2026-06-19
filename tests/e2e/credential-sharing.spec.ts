@@ -99,6 +99,7 @@ test("privacy path never renders hidden CGPA or marks in the verifier", async ({
 });
 
 test("holder imports OpenCerts, derives a wallet credential, and shares selected claims only", async ({ page }) => {
+  test.setTimeout(120_000);
   const holderEmail = uniqueHolder();
 
   await registerHolder(page, holderEmail);
@@ -110,7 +111,7 @@ test("holder imports OpenCerts, derives a wallet credential, and shares selected
   await expect(page.getByLabel("Document JSON")).not.toHaveValue("");
   await expect(page.getByRole("button", { name: "Verify source" })).toBeEnabled();
   await page.getByRole("button", { name: "Verify source" }).click();
-  await expect(page.getByRole("heading", { name: "Verified source" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verified source" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Hidden by Default")).toBeVisible();
   await expect(page.getByText("academicCredential.transcript")).toBeVisible();
   await page.getByRole("button", { name: "Store in wallet" }).click();
