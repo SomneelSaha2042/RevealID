@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, FileJson, ShieldCheck, WalletCards } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Button, ButtonLink } from "../../../components/ui/button";
@@ -55,6 +55,7 @@ const verificationLabels: [keyof VerificationSummary, string][] = [
 ];
 
 export function OpenCertsImportForm() {
+  const [ready, setReady] = useState(false);
   const [fileName, setFileName] = useState("sepolia.opencert");
   const [documentText, setDocumentText] = useState("");
   const [verificationMode, setVerificationMode] = useState<"LOCAL_TRUSTVC" | "OPENCERTS_API">("LOCAL_TRUSTVC");
@@ -73,6 +74,10 @@ export function OpenCertsImportForm() {
         : [],
     [preview]
   );
+
+  useEffect(() => {
+    setReady(true);
+  }, []);
 
   async function readFile(file: File) {
     setFileName(file.name);
@@ -164,6 +169,7 @@ export function OpenCertsImportForm() {
               OpenCerts file
               <Input
                 accept=".opencert,application/json"
+                disabled={!ready}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void readFile(file);
@@ -198,7 +204,7 @@ export function OpenCertsImportForm() {
               Document JSON
               <Textarea onChange={(event) => setDocumentText(event.target.value)} value={documentText} />
             </Field>
-            <Button disabled={submitting || documentText.length === 0} onClick={verifyImport} type="button">
+            <Button disabled={!ready || submitting || documentText.length === 0} onClick={verifyImport} type="button">
               <ShieldCheck aria-hidden="true" size={16} />
               {submitting ? "Verifying..." : "Verify source"}
             </Button>

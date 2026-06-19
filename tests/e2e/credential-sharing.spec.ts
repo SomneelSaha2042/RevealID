@@ -106,6 +106,8 @@ test("holder imports OpenCerts, derives a wallet credential, and shares selected
   await page
     .getByLabel("OpenCerts file")
     .setInputFiles(path.join(process.cwd(), "samples", "opencerts", "sepolia.opencert"));
+  await expect(page.getByLabel("Document JSON")).not.toHaveValue("");
+  await expect(page.getByRole("button", { name: "Verify source" })).toBeEnabled();
   await page.getByRole("button", { name: "Verify source" }).click();
   await expect(page.getByRole("heading", { name: "Verified source" })).toBeVisible();
   await expect(page.getByText("Hidden by Default")).toBeVisible();
