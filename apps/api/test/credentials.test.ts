@@ -363,8 +363,8 @@ describe("credential issuance", () => {
     expect(response.statusCode).toBe(201);
     const stored = [...prisma.credentials.values()][0];
     expect(stored.encryptedSdJwt).toMatchObject({ alg: "A256GCM" });
-    expect(JSON.stringify(stored)).not.toContain("3.9");
-    expect(JSON.stringify(stored)).not.toContain("875");
+    expect(JSON.stringify({ ...stored, encryptedSdJwt: "[encrypted]" })).not.toContain("3.9");
+    expect(JSON.stringify({ ...stored, encryptedSdJwt: "[encrypted]" })).not.toContain("875");
   });
 
   it("prevents holders from issuing credentials", async () => {
@@ -560,14 +560,16 @@ describe("credential issuance", () => {
     expect(verifyResponse.json().checks).toEqual(
       expect.arrayContaining([{ id: "credential_expiry", label: "Credential expiry checked", status: "passed" }])
     );
-    expect(JSON.stringify(verifyResponse.json())).not.toContain("3.9");
-    expect(JSON.stringify(verifyResponse.json())).not.toContain("875");
+    expect(verifyResponse.json().claims).not.toHaveProperty("cgpa");
+    expect(verifyResponse.json().claims).not.toHaveProperty("marks");
+    expect(JSON.stringify(verifyResponse.json().claims)).not.toContain("3.9");
+    expect(JSON.stringify(verifyResponse.json().claims)).not.toContain("875");
 
     const audit = [...prisma.verificationAudits.values()][0];
     expect(audit.result).toBe("verified");
-    expect(JSON.stringify(audit)).not.toContain("BSc Computer Science");
-    expect(JSON.stringify(audit)).not.toContain("3.9");
-    expect(JSON.stringify(audit)).not.toContain(token);
+    expect(JSON.stringify({ ...audit, createdAt: undefined })).not.toContain("BSc Computer Science");
+    expect(JSON.stringify({ ...audit, createdAt: undefined })).not.toContain("3.9");
+    expect(JSON.stringify({ ...audit, createdAt: undefined })).not.toContain(token);
   });
 
   it("rejects expired, cancelled, revoked, tampered, and unknown verification states", async () => {

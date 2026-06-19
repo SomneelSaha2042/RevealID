@@ -15,6 +15,7 @@ const apiEnv = {
   CREDENTIAL_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   ISSUER_ID: apiBaseUrl,
   ISSUER_NAME: "Demo University",
+  OPENCERTS_API_VERIFY_URL: "http://127.0.0.1:4010/verify",
   COOKIE_SECURE: "false",
   NODE_ENV: "development"
 };
@@ -33,6 +34,12 @@ export default defineConfig({
   },
   webServer: shouldStartServers
     ? [
+        {
+          command: "node tests/e2e/opencerts-verify-stub.mjs",
+          url: "http://127.0.0.1:4010/health",
+          reuseExistingServer: true,
+          timeout: 30_000
+        },
         {
           command:
             "corepack pnpm db:generate && corepack pnpm db:migrate && corepack pnpm db:seed && corepack pnpm dev:api",

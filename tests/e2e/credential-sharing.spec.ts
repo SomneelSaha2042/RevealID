@@ -105,6 +105,7 @@ test("holder imports OpenCerts, derives a wallet credential, and shares selected
   await registerHolder(page, holderEmail);
   await page.goto("/wallet/import");
   await expect(page.getByLabel("OpenCerts file")).toBeEnabled();
+  await page.getByLabel("Verification").selectOption("OPENCERTS_API");
   await page
     .getByLabel("OpenCerts file")
     .setInputFiles(path.join(process.cwd(), "samples", "opencerts", "sepolia.opencert"));
