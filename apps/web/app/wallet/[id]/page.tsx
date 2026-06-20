@@ -57,12 +57,17 @@ export default async function CredentialDetailPage({ params }: PageProps) {
   const credential = await getCredential(id);
   const expired = credential?.expiresAt ? new Date(credential.expiresAt).getTime() <= Date.now() : false;
   const closed = Boolean(credential?.revokedAt) || expired;
+  const hasSourceProvenance = Boolean(credential?.sourceProvenance);
 
   return (
     <AppShell
-      description="Choose exactly which claims to disclose and generate a holder-bound verification link."
+      description={
+        hasSourceProvenance
+          ? "Share selected claims from an OpenCerts-derived RevealID credential."
+          : "Choose exactly which claims to disclose and generate a holder-bound verification link."
+      }
       eyebrow="Holder"
-      title="Share credential"
+      title={hasSourceProvenance ? "Share OpenCerts-derived credential" : "Share credential"}
     >
         {!credential ? (
           <EmptyState>Credential not found or sign-in expired.</EmptyState>
@@ -70,8 +75,12 @@ export default async function CredentialDetailPage({ params }: PageProps) {
           <>
             <Card className="credential-card detail-card">
               <div>
-                <h2>{credential.credentialType}</h2>
-                <p>{credential.issuerName}</p>
+                <h2>{credential.sourceProvenance ? "OpenCerts-derived credential" : credential.credentialType}</h2>
+                <p>
+                  {credential.sourceProvenance
+                    ? "Derived by RevealID from an imported OpenCerts source"
+                    : credential.issuerName}
+                </p>
                 {credential.expiresAt ? (
                   <p>Expires {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.expiresAt))}</p>
                 ) : null}

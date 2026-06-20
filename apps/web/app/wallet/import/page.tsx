@@ -4,9 +4,9 @@ import { OpenCertsImportForm } from "./OpenCertsImportForm";
 export default function ImportOpenCertsPage() {
   return (
     <AppShell
-      description="Import an OpenCerts source file, review verified claims, and derive a RevealID wallet credential."
-      eyebrow="Holder"
-      title="Import OpenCerts"
+      description="Verify a holder-provided OpenCerts file, review normalized claims, and store a RevealID-derived credential for selective disclosure."
+      eyebrow="OpenCerts bridge"
+      title="Import and derive"
     >
       <OpenCertsImportForm />
     </AppShell>

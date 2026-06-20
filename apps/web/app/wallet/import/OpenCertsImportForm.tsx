@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, FileJson, ShieldCheck, WalletCards } from "lucide-react";
+import { CheckCircle2, FileJson, LockKeyhole, ShieldCheck, Upload, WalletCards } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Button, ButtonLink } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -158,10 +158,27 @@ export function OpenCertsImportForm() {
 
   return (
     <div className="import-workflow">
+      <section className="bridge-stage-list" aria-label="OpenCerts bridge stages">
+        <div className="active">
+          <Upload aria-hidden="true" size={18} />
+          <span>1</span>
+          <strong>Upload source</strong>
+        </div>
+        <div className={preview ? "active" : undefined}>
+          <ShieldCheck aria-hidden="true" size={18} />
+          <span>2</span>
+          <strong>Verify and review</strong>
+        </div>
+        <div className={derived ? "active" : undefined}>
+          <WalletCards aria-hidden="true" size={18} />
+          <span>3</span>
+          <strong>Store credential</strong>
+        </div>
+      </section>
       <Card>
         <CardHeader>
-          <CardTitle>Source file</CardTitle>
-          <CardDescription>Use a JSON `.opencert` file.</CardDescription>
+          <CardTitle>OpenCerts source</CardTitle>
+          <CardDescription>Upload a JSON `.opencert` file. RevealID verifies before claims are normalized or stored.</CardDescription>
         </CardHeader>
         <CardContent>
           <section className="form-panel">
@@ -222,6 +239,13 @@ export function OpenCertsImportForm() {
             </CardHeader>
             <CardContent>
               <div className="verification-grid">
+                <div>
+                  <ShieldCheck aria-hidden="true" size={18} />
+                  <span>Overall source checks</span>
+                  <Badge tone={preview.source.verification.all ? "success" : "warning"}>
+                    {preview.source.verification.all ? "Complete" : "Partial"}
+                  </Badge>
+                </div>
                 {verificationLabels.map(([key, label]) => (
                   <div key={key}>
                     <CheckCircle2 aria-hidden="true" size={18} />
@@ -267,7 +291,10 @@ export function OpenCertsImportForm() {
                 {preview.hiddenByDefault.map((field) => (
                   <li key={field}>
                     <span>{field}</span>
-                    <strong>Hidden</strong>
+                    <strong>
+                      <LockKeyhole aria-hidden="true" size={14} />
+                      Hidden
+                    </strong>
                   </li>
                 ))}
               </ul>

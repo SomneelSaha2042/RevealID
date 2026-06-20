@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, FileJson, KeyRound, LockKeyhole, ShieldCheck, Upload } from "lucide-react";
 import { AuthNav } from "./auth/AuthNav";
 import { ButtonLink } from "../components/ui/button";
 import { Card } from "../components/ui/card";
@@ -28,18 +28,19 @@ export default async function Home() {
       </header>
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">Selective disclosure credential wallet</p>
-          <h1>Verify academic credentials without oversharing private data.</h1>
+          <p className="eyebrow">OpenCerts bridge and selective disclosure wallet</p>
+          <h1>Turn an OpenCerts file into a private sharing credential.</h1>
           <p className="lede">
-            RevealID issues holder-bound SD-JWT credentials, lets holders disclose only selected claims, and gives
-            verifiers a cryptographic report without exposing hidden CGPA or marks.
+            RevealID verifies a holder-provided OpenCerts source, derives a wallet credential, and lets the holder
+            share only selected academic claims with a verifier.
           </p>
           <div className="hero-actions">
-            <ButtonLink href="/login">
-              Sign in <ArrowRight aria-hidden="true" size={16} />
+            <ButtonLink href="/wallet/import">
+              <Upload aria-hidden="true" size={16} />
+              Import OpenCerts
             </ButtonLink>
-            <ButtonLink href="/issuer/issue" variant="secondary">
-              Issue credential
+            <ButtonLink href="/wallet" variant="secondary">
+              Open wallet <ArrowRight aria-hidden="true" size={16} />
             </ButtonLink>
           </div>
           <div className="status">
@@ -47,57 +48,59 @@ export default async function Home() {
             {health}
           </div>
         </div>
-        <Card className="hero-panel">
+        <Card className="hero-panel bridge-panel">
           <div className="hero-panel-header">
-            <ShieldCheck aria-hidden="true" size={24} />
+            <FileJson aria-hidden="true" size={24} />
             <div>
-              <strong>Verifier result</strong>
-              <p>Disclosed claims only</p>
+              <strong>Bridge workflow</strong>
+              <p>Source file to selective share</p>
             </div>
           </div>
-          <dl className="claim-preview">
-            <div>
-              <dt>degree</dt>
-              <dd>BSc Computer Science</dd>
-            </div>
-            <div>
-              <dt>graduationYear</dt>
-              <dd>2026</dd>
-            </div>
-          </dl>
-          <ul className="trust-list">
+          <ol className="bridge-steps">
             <li>
-              <CheckCircle2 aria-hidden="true" size={16} />
-              Issuer signature verified
+              <span>1</span>
+              <div>
+                <strong>Verify OpenCerts</strong>
+                <p>Check source integrity before normalization.</p>
+              </div>
             </li>
             <li>
-              <KeyRound aria-hidden="true" size={16} />
-              Holder key binding verified
+              <span>2</span>
+              <div>
+                <strong>Derive RevealID credential</strong>
+                <p>Store a holder-bound SD-JWT credential with provenance.</p>
+              </div>
             </li>
             <li>
-              <LockKeyhole aria-hidden="true" size={16} />
-              CGPA and marks withheld
+              <span>3</span>
+              <div>
+                <strong>Share selected claims</strong>
+                <p>Verifier sees disclosed fields only.</p>
+              </div>
             </li>
-          </ul>
+          </ol>
         </Card>
       </section>
       <section className="feature-strip">
         <Card>
-          <strong>SD-JWT disclosure</strong>
-          <p>Selected claims verify against signed disclosure digests.</p>
+          <ShieldCheck aria-hidden="true" size={18} />
+          <strong>OpenCerts source first</strong>
+          <p>Import starts from a JSON OpenCerts file and records source hash, checks, and provenance.</p>
         </Card>
         <Card>
-          <strong>Encrypted custody</strong>
-          <p>Credentials, presentations, and holder private keys stay encrypted at rest.</p>
+          <KeyRound aria-hidden="true" size={18} />
+          <strong>RevealID credentials too</strong>
+          <p>Native issuer-created credentials still live in the same encrypted wallet and share flow.</p>
         </Card>
         <Card>
-          <strong>Public verifier</strong>
-          <p>Share links and QR codes open a no-login verification report.</p>
+          <LockKeyhole aria-hidden="true" size={18} />
+          <strong>Privacy by default</strong>
+          <p>Hidden source fields, grades, transcript rows, and IDs stay out of verifier responses.</p>
         </Card>
       </section>
       <section className="demo-callout">
         <strong>Demo path</strong>
-        <span>Issuer issues to holder@example.edu, holder shares degree and year, verifier sees only those fields.</span>
+        <span>Upload the public OpenCerts sample, derive a wallet credential, then share recipient, institution, course, or graduation date.</span>
       </section>
       <section className="mobile-actions">
         <div className="actions">

@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { Upload } from "lucide-react";
+import { FileJson, ShieldCheck, Upload, WalletCards } from "lucide-react";
 import { AppShell } from "../../components/app-shell";
 import { Badge } from "../../components/ui/badge";
 import { ButtonLink } from "../../components/ui/button";
@@ -14,6 +14,10 @@ type WalletCredential = {
   expiresAt: string | null;
   revokedAt: string | null;
 };
+
+const isOpenCertsDerived = (credential: WalletCredential) =>
+  credential.credentialType === "RevealIDDerivedAcademicCredential" ||
+  credential.credentialType.toLowerCase().includes("derivedacademic");
 
 async function getCredentials() {
   const cookieStore = await cookies();
@@ -39,20 +43,41 @@ async function getCredentials() {
 
 export default async function WalletPage() {
   const { credentials, authenticated } = await getCredentials();
+  const openCertsCredentials = credentials.filter(isOpenCertsDerived);
+  const revealIdCredentials = credentials.filter((credential) => !isOpenCertsDerived(credential));
 
   return (
     <AppShell
-      description="Manage credentials you own and create selective disclosure links from active credentials."
+      description="Start with an OpenCerts import, then manage derived and native RevealID credentials from one wallet."
       eyebrow="Holder"
-      title="Wallet"
+      title="Credential workspace"
     >
         {authenticated ? (
-          <div className="wallet-actions">
-            <ButtonLink href="/wallet/import" variant="secondary">
-              <Upload aria-hidden="true" size={16} />
-              Import OpenCerts
-            </ButtonLink>
-          </div>
+          <section className="workspace-actions" aria-label="Credential workspace actions">
+            <div className="primary-workflow">
+              <div>
+                <p className="eyebrow">Primary workflow</p>
+                <h2>Import an OpenCerts source</h2>
+                <p>Verify a source file, derive a RevealID credential, then share selected claims.</p>
+              </div>
+              <ButtonLink href="/wallet/import">
+                <Upload aria-hidden="true" size={16} />
+                Import OpenCerts
+              </ButtonLink>
+            </div>
+            <div className="source-summary">
+              <div>
+                <FileJson aria-hidden="true" size={18} />
+                <span>OpenCerts-derived</span>
+                <strong>{openCertsCredentials.length}</strong>
+              </div>
+              <div>
+                <WalletCards aria-hidden="true" size={18} />
+                <span>RevealID native</span>
+                <strong>{revealIdCredentials.length}</strong>
+              </div>
+            </div>
+          </section>
         ) : null}
         {!authenticated ? <EmptyState>Sign in as a holder to view wallet credentials.</EmptyState> : null}
         {authenticated && credentials.length === 0 ? <EmptyState>No credentials in this wallet.</EmptyState> : null}
@@ -61,16 +86,21 @@ export default async function WalletPage() {
             {credentials.map((credential) => {
               const expired = credential.expiresAt ? new Date(credential.expiresAt).getTime() <= Date.now() : false;
               const closed = Boolean(credential.revokedAt) || expired;
+              const derived = isOpenCertsDerived(credential);
               return (
                 <Card className="credential-card" key={credential.id}>
                   <div>
-                    <h2>{credential.credentialType}</h2>
-                    <p>{credential.issuerName}</p>
+                    <div className="credential-title-row">
+                      {derived ? <FileJson aria-hidden="true" size={18} /> : <ShieldCheck aria-hidden="true" size={18} />}
+                      <h2>{derived ? "OpenCerts-derived credential" : credential.credentialType}</h2>
+                    </div>
+                    <p>{derived ? "Derived by RevealID from an imported source" : credential.issuerName}</p>
                     {credential.expiresAt ? (
                       <p>Expires {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(credential.expiresAt))}</p>
                     ) : null}
                   </div>
                   <div className="card-actions">
+                    <Badge tone={derived ? "warning" : "neutral"}>{derived ? "OpenCerts bridge" : "RevealID"}</Badge>
                     <Badge tone={closed ? "neutral" : "success"}>
                       {credential.revokedAt ? "Revoked" : expired ? "Expired" : "Active"}
                     </Badge>

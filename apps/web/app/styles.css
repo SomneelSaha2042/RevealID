@@ -388,6 +388,49 @@ p {
   color: var(--primary);
 }
 
+.bridge-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bridge-steps li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-muted);
+}
+
+.bridge-steps span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.bridge-steps strong {
+  display: block;
+  color: var(--text);
+}
+
+.bridge-steps p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .feature-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -401,6 +444,10 @@ p {
   gap: 8px;
   padding: 18px;
   box-shadow: none;
+}
+
+.feature-strip svg {
+  color: var(--primary);
 }
 
 .feature-strip strong {
@@ -566,6 +613,73 @@ textarea:focus {
   margin-bottom: 14px;
 }
 
+.workspace-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.primary-workflow,
+.source-summary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.primary-workflow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.primary-workflow h2 {
+  margin: 4px 0 6px;
+  font-size: 1.15rem;
+}
+
+.primary-workflow p:not(.eyebrow) {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.source-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.source-summary > div {
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  min-height: 116px;
+  padding: 16px;
+}
+
+.source-summary > div + div {
+  border-left: 1px solid var(--border);
+}
+
+.source-summary svg {
+  color: var(--primary);
+}
+
+.source-summary span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.source-summary strong {
+  color: var(--text);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
 .credential-card {
   display: flex;
   align-items: center;
@@ -575,8 +689,20 @@ textarea:focus {
   box-shadow: none;
 }
 
+.credential-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.credential-title-row svg {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+
 .credential-card h2 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 1rem;
 }
 
@@ -652,6 +778,49 @@ textarea:focus {
 .import-review {
   display: grid;
   gap: 18px;
+}
+
+.bridge-stage-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bridge-stage-list > div {
+  display: grid;
+  grid-template-columns: 22px 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 850;
+}
+
+.bridge-stage-list > div.active {
+  border-color: #b7d4d0;
+  color: var(--primary-strong);
+  background: var(--primary-soft);
+}
+
+.bridge-stage-list svg {
+  color: currentColor;
+}
+
+.bridge-stage-list span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--primary);
+  font-size: 0.76rem;
 }
 
 .verification-grid {
@@ -788,6 +957,9 @@ textarea:focus {
 }
 
 .privacy-split strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text);
 }
 
@@ -887,8 +1059,11 @@ textarea:focus {
   }
 
   .feature-strip,
+  .bridge-stage-list,
   .form-grid,
   .form-grid.two,
+  .source-summary,
+  .workspace-actions,
   .privacy-split {
     grid-template-columns: 1fr;
   }
@@ -901,6 +1076,7 @@ textarea:focus {
 
   .credential-card,
   .derive-panel,
+  .primary-workflow,
   .provenance-panel,
   .provenance-panel.compact,
   .share-result {
@@ -911,6 +1087,11 @@ textarea:focus {
 
   .card-actions {
     justify-content: flex-start;
+  }
+
+  .source-summary > div + div {
+    border-top: 1px solid var(--border);
+    border-left: 0;
   }
 
   .checkbox-row {

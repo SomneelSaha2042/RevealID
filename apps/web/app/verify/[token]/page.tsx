@@ -131,8 +131,14 @@ export default async function VerifySharePage({ params }: PageProps) {
           <Card className="verification-panel">
             <div>
               <Badge tone="success">Cryptographically Verified</Badge>
-              <h2>{verification.credentialType}</h2>
-              <p>{verification.issuerName}</p>
+              <h2>
+                {verification.sourceProvenance ? "OpenCerts-derived RevealID presentation" : verification.credentialType}
+              </h2>
+              <p>
+                {verification.sourceProvenance
+                  ? "Holder-selected claims from a RevealID-derived credential"
+                  : verification.issuerName}
+              </p>
             </div>
             <dl>
               {Object.entries(verification.claims).map(([key, value]) => (
