@@ -67,7 +67,7 @@ export default async function CredentialDetailPage({ params }: PageProps) {
           : "Choose exactly which claims to disclose and generate a holder-bound verification link."
       }
       eyebrow="Holder"
-      title={hasSourceProvenance ? "Share OpenCerts-derived credential" : "Share credential"}
+      title="Share credential"
     >
         {!credential ? (
           <EmptyState>Credential not found or sign-in expired.</EmptyState>
