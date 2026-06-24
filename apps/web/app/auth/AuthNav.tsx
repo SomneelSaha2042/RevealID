@@ -6,7 +6,7 @@ export async function AuthNav() {
   const user = await getCurrentUser();
 
   return (
-    <nav className="flex items-center gap-6">
+    <nav className="flex flex-wrap items-center gap-2 md:gap-6 justify-end">
       <a className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors duration-200" href="/wallet/import">
         OpenCerts
       </a>

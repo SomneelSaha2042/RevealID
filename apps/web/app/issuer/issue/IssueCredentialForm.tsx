@@ -54,8 +54,9 @@ export function IssueCredentialForm() {
       </div>
       <form action={issueCredential} className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Holder Email</label>
+          <label htmlFor="holderEmail" className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Holder Email</label>
           <input
+            id="holderEmail"
             name="holderEmail"
             type="email"
             required
@@ -64,8 +65,9 @@ export function IssueCredentialForm() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Degree</label>
+          <label htmlFor="degree" className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Degree</label>
           <input
+            id="degree"
             name="degree"
             required
             maxLength={160}
@@ -74,8 +76,9 @@ export function IssueCredentialForm() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Graduation Year</label>
+          <label htmlFor="graduationYear" className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Graduation Year</label>
           <input
+            id="graduationYear"
             name="graduationYear"
             type="number"
             min={1900}
@@ -87,8 +90,9 @@ export function IssueCredentialForm() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-label-md font-bold text-xs uppercase text-on-surface-variant">CGPA</label>
+            <label htmlFor="cgpa" className="text-label-md font-bold text-xs uppercase text-on-surface-variant">CGPA</label>
             <input
+              id="cgpa"
               name="cgpa"
               type="number"
               min={0}
@@ -100,8 +104,9 @@ export function IssueCredentialForm() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Marks</label>
+            <label htmlFor="marks" className="text-label-md font-bold text-xs uppercase text-on-surface-variant">Marks</label>
             <input
+              id="marks"
               name="marks"
               type="number"
               min={0}
@@ -123,7 +128,7 @@ export function IssueCredentialForm() {
             disabled={state === "submitting"}
             className="px-8 py-3 bg-primary text-on-primary font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 font-label-md text-label-md shadow-lg shadow-primary/20 disabled:opacity-50"
           >
-            {state === "submitting" ? "Issuing..." : "Sign & Issue"}
+            {state === "submitting" ? "Issuing..." : "Issue credential"}
           </button>
         </div>
       </form>

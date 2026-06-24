@@ -186,9 +186,11 @@ export function OpenCertsImportForm() {
               {fileName ? `File Selected: ${fileName}` : "Drop OpenCert file here"}
             </h3>
             <p className="text-on-surface-variant font-body-md mb-6 text-sm">Support .json and .opencert formats (max 5MB)</p>
+            <label htmlFor="openCertsFile" className="sr-only">OpenCerts file</label>
             <label className="bg-white/10 border border-white/10 px-8 py-3 rounded-lg text-white font-label-md hover:bg-white/20 transition-all cursor-pointer font-bold">
               Browse Files
               <input
+                id="openCertsFile"
                 accept=".opencert,application/json"
                 disabled={!ready}
                 className="hidden"
@@ -204,8 +206,9 @@ export function OpenCertsImportForm() {
           {/* Form Settings inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <div>
-              <label className="text-on-surface-variant text-label-sm uppercase mb-2 block font-bold text-xs">File Name</label>
+              <label htmlFor="fileNameInput" className="text-on-surface-variant text-label-sm uppercase mb-2 block font-bold text-xs">File Name</label>
               <input
+                id="fileNameInput"
                 className="w-full bg-charcoal-depth border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none"
                 disabled={!ready}
                 onChange={(event) => setFileName(event.target.value)}
@@ -213,8 +216,9 @@ export function OpenCertsImportForm() {
               />
             </div>
             <div>
-              <label className="text-on-surface-variant text-label-sm uppercase mb-2 block font-bold text-xs">Verification Mode</label>
+              <label htmlFor="verificationModeSelect" className="text-on-surface-variant text-label-sm uppercase mb-2 block font-bold text-xs">Verification</label>
               <select
+                id="verificationModeSelect"
                 className="w-full bg-charcoal-depth border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none"
                 disabled={!ready}
                 onChange={(event) =>
@@ -271,7 +275,7 @@ export function OpenCertsImportForm() {
           <div className="glass-card p-8 rounded-xl flex-grow flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-headline-md text-white font-bold text-lg">Document Source JSON</h3>
+                <label htmlFor="documentJsonTextarea" className="font-headline-md text-white font-bold text-lg cursor-pointer">Document JSON</label>
                 <div className="flex gap-2">
                   <div className="w-3 h-3 rounded-full bg-error-red/50"></div>
                   <div className="w-3 h-3 rounded-full bg-tertiary/50"></div>
@@ -279,6 +283,7 @@ export function OpenCertsImportForm() {
                 </div>
               </div>
               <textarea
+                id="documentJsonTextarea"
                 className="w-full h-80 bg-charcoal-depth/50 rounded-lg p-6 font-mono text-sm text-primary/80 overflow-y-auto custom-scrollbar border border-white/5 shadow-inner focus:outline-none resize-none"
                 placeholder='Paste OpenCerts JSON document here or upload a file...'
                 value={documentText}
@@ -307,7 +312,7 @@ export function OpenCertsImportForm() {
                 onClick={verifyImport}
                 type="button"
               >
-                {submitting ? "Verifying..." : "Start Verification"}
+                {submitting ? "Verifying..." : "Verify source"}
               </button>
             </div>
           </div>
@@ -317,6 +322,7 @@ export function OpenCertsImportForm() {
       {/* Verified OpenCerts Preview Details */}
       {preview ? (
         <section className="mt-12 space-y-8" aria-label="Verified OpenCerts preview">
+          <h3 className="font-headline-md text-white text-xl font-bold">Verified source</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Claims Ready to Share */}
             <div className="glass-card p-8 rounded-xl">
@@ -366,7 +372,7 @@ export function OpenCertsImportForm() {
                   className="w-full md:w-auto bg-success-green text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all hover:opacity-90"
                 >
                   <WalletCards aria-hidden="true" size={20} />
-                  Open derived credential
+                  Open credential
                 </a>
               ) : (
                 <button

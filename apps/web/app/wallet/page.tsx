@@ -150,7 +150,7 @@ export default async function WalletPage() {
                               <span className="text-on-surface-variant/40 text-sm font-bold">Share unavailable</span>
                             ) : (
                               <a href={`/wallet/${credential.id}`} className="text-primary font-bold text-sm flex items-center gap-2 hover:underline">
-                                View &amp; Share
+                                Share
                                 <ArrowRight size={16} />
                               </a>
                             )}
