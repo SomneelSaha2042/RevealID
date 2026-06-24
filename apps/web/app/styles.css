@@ -1,25 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f6f7f9;
-  color: #121820;
-  --background: #f6f7f9;
-  --surface: #ffffff;
-  --surface-muted: #f1f4f6;
-  --border: #d9e0e7;
-  --border-strong: #b9c4cf;
-  --text: #121820;
-  --muted: #5a6673;
-  --primary: #0f5c55;
-  --primary-strong: #0a433e;
-  --primary-soft: #e8f4f2;
-  --danger: #a73535;
-  --danger-soft: #fff0f0;
-  --warning: #8a5a00;
-  --warning-soft: #fff7df;
-  --shadow: 0 18px 45px rgba(18, 24, 32, 0.08);
+  background: #020617; /* charcoal-depth */
+  color: #dae2fd; /* on-surface */
+  --background: #020617; /* charcoal-depth */
+  --surface: #0b1326; /* surface */
+  --surface-muted: #131b2e; /* surface-container-low */
+  --border: rgba(255, 255, 255, 0.1); /* outline (white-10%) */
+  --border-strong: #3e4850; /* outline-variant */
+  --text: #dae2fd; /* on-surface */
+  --muted: #bec8d2; /* on-surface-variant */
+  --primary: #89ceff; /* primary */
+  --primary-strong: #0ea5e9; /* primary-container */
+  --primary-soft: rgba(14, 165, 233, 0.15);
+  --danger: #EF4444; /* error-red */
+  --danger-soft: rgba(239, 68, 68, 0.15);
+  --warning: #ffb86e; /* tertiary */
+  --warning-soft: rgba(255, 184, 110, 0.15);
+  --shadow: 0px 20px 50px rgba(0,0,0, 0.5);
+
+  /* Design System specific tokens */
+  --charcoal-depth: #020617;
+  --slate-surface: #1E293B;
+  --electric-cyan: #22D3EE;
+  --success-green: #10B981;
 }
+
+h1, h2, h3, h4, h5, h6, .brand-lockup {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 
 * {
   box-sizing: border-box;
@@ -49,7 +62,7 @@ p {
 .app-shell {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(232, 244, 242, 0.9), rgba(246, 247, 249, 0) 320px),
+    linear-gradient(180deg, rgba(14, 165, 233, 0.08), rgba(2, 6, 23, 0) 400px),
     var(--background);
 }
 
@@ -72,7 +85,7 @@ p {
   min-height: 72px;
   border-bottom: 1px solid var(--border);
   padding: 0 32px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(11, 19, 38, 0.8);
   backdrop-filter: blur(18px);
 }
 
@@ -216,7 +229,7 @@ p {
   gap: 8px;
   min-height: 40px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 0 14px;
   font: inherit;
   font-size: 0.92rem;
@@ -240,7 +253,7 @@ p {
 }
 
 .ui-button-primary {
-  color: #ffffff;
+  color: #00344d;
   background: var(--primary);
 }
 
@@ -249,9 +262,9 @@ p {
 }
 
 .ui-button-secondary {
-  border-color: #b7d4d0;
-  color: var(--primary-strong);
-  background: var(--primary-soft);
+  border-color: var(--border);
+  color: var(--primary);
+  background: var(--surface-muted);
 }
 
 .ui-button-ghost {
@@ -277,7 +290,8 @@ p {
 .share-result {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+  backdrop-filter: blur(12px);
   box-shadow: var(--shadow);
 }
 
@@ -531,10 +545,10 @@ textarea {
   min-height: 44px;
   width: 100%;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 0 12px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--charcoal-depth);
   font: inherit;
 }
 
@@ -543,7 +557,8 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--primary);
-  outline: 3px solid rgba(15, 92, 85, 0.14);
+  outline: 3px solid rgba(137, 206, 255, 0.25);
+  box-shadow: 0 0 8px rgba(137, 206, 255, 0.4);
 }
 
 .ui-textarea {
@@ -589,7 +604,7 @@ textarea:focus {
   border: 1px dashed var(--border-strong);
   border-radius: 8px;
   padding: 18px;
-  background: #ffffff;
+  background: var(--surface-muted);
   color: var(--muted);
 }
 
@@ -624,7 +639,7 @@ textarea:focus {
 .source-summary {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .primary-workflow {
@@ -734,7 +749,7 @@ textarea:focus {
   border-radius: 999px;
   padding: 0 10px;
   color: var(--muted);
-  background: #ffffff;
+  background: var(--surface-muted);
   font-size: 0.78rem;
   font-weight: 850;
 }
@@ -796,7 +811,7 @@ textarea:focus {
   border-radius: 8px;
   padding: 0 12px;
   color: var(--muted);
-  background: #ffffff;
+  background: var(--surface-muted);
   font-size: 0.88rem;
   font-weight: 850;
 }
@@ -837,7 +852,7 @@ textarea:focus {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0 12px;
-  background: #ffffff;
+  background: var(--surface-muted);
   color: var(--muted);
   font-weight: 800;
 }
@@ -855,7 +870,7 @@ textarea:focus {
   border-radius: 8px;
   margin-bottom: 18px;
   padding: 14px;
-  background: #ffffff;
+  background: var(--surface-muted);
 }
 
 .provenance-panel.compact {
@@ -912,7 +927,7 @@ textarea:focus {
   border-radius: 8px;
   padding: 0 12px;
   color: var(--text);
-  background: #ffffff;
+  background: var(--surface-muted);
 }
 
 .checkbox-row input {
@@ -998,7 +1013,7 @@ textarea:focus {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0 12px;
-  background: #ffffff;
+  background: var(--surface-muted);
 }
 
 .verification-checks span {
