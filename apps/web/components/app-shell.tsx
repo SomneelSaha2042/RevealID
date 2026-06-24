@@ -16,21 +16,30 @@ export function AppShell({
   title: string;
 }) {
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a className="brand-lockup" href="/">
-          <ShieldCheck aria-hidden="true" size={20} />
-          <span>RevealID</span>
-        </a>
-        <AuthNav />
-      </header>
-      <section className={narrow ? "workspace narrow-workspace" : "workspace"}>
-        <div className="section-heading">
-          <p className="eyebrow">{eyebrow}</p>
-          <h1>{title}</h1>
-          {description ? <p className="section-description">{description}</p> : null}
+    <main className="min-h-screen bg-background text-on-background font-body-md overflow-x-hidden selection:bg-primary selection:text-on-primary-container">
+      {/* TopNavBar */}
+      <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between h-16">
+          <div className="flex items-center gap-8">
+            <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary flex items-center gap-2" href="/">
+              <ShieldCheck aria-hidden="true" size={20} />
+              <span>RevealID</span>
+            </a>
+          </div>
+          <AuthNav />
         </div>
-        {children}
+      </header>
+
+      {/* Workspace */}
+      <section className="pt-24 pb-stack-lg max-w-container-max mx-auto px-grid-margin">
+        <div className={narrow ? "max-w-2xl mx-auto space-y-8" : "space-y-8"}>
+          <div className="mb-12">
+            <p className="font-label-md text-primary text-xs uppercase tracking-widest mb-2">{eyebrow}</p>
+            <h1 className="font-display-xl text-[40px] md:text-[52px] mb-4 text-white font-bold leading-tight tracking-tight">{title}</h1>
+            {description ? <p className="font-body-lg text-body-lg text-on-surface-variant max-w-3xl leading-relaxed">{description}</p> : null}
+          </div>
+          {children}
+        </div>
       </section>
     </main>
   );
