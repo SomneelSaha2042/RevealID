@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { ShieldCheck } from "lucide-react";
 import { AuthNav } from "../app/auth/AuthNav";
+import { BrandMark } from "./brand-mark";
 
 export function AppShell({
   children,
@@ -21,9 +21,8 @@ export function AppShell({
       <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between min-h-16 py-2 md:py-0 h-auto md:h-16 flex-wrap md:flex-nowrap gap-4">
           <div className="flex items-center gap-8 shrink-0">
-            <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary flex items-center gap-2" href="/">
-              <ShieldCheck aria-hidden="true" size={20} />
-              <span>RevealID</span>
+            <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary" href="/" aria-label="RevealID home">
+              <BrandMark />
             </a>
           </div>
           <AuthNav />

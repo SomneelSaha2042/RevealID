@@ -154,7 +154,7 @@ test("security failure path shows revoked credentials as invalid", async ({ page
 
   await signIn(page, issuerEmail, issuerPassword);
   await expect(page).toHaveURL(/\/issuer\/issue/);
-  const issuedCredential = page.locator(".credential-card", { hasText: holderEmail }).first();
+  const issuedCredential = page.getByTestId("issued-credential-row").filter({ hasText: holderEmail }).first();
   await expect(issuedCredential).toBeVisible();
   await issuedCredential.getByRole("button", { name: "Revoke" }).click();
   await expect(issuedCredential.getByText("Revoked")).toBeVisible();

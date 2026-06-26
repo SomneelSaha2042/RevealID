@@ -3,7 +3,11 @@ import "./styles.css";
 
 export const metadata: Metadata = {
   title: "RevealID",
-  description: "Privacy-preserving academic credential wallet and verifier"
+  description: "Privacy-preserving academic credential wallet and verifier",
+  icons: {
+    icon: "/revealid.png",
+    apple: "/revealid.png"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

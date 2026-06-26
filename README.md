@@ -1,4 +1,8 @@
-# RevealID
+<p align="center">
+  <img src="assets/revealid.png" alt="RevealID icon" width="120" />
+</p>
+
+<h1 align="center">RevealID</h1>
 
 [![CI](https://github.com/SomneelSaha2042/RevealID/actions/workflows/ci.yml/badge.svg)](https://github.com/SomneelSaha2042/RevealID/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)

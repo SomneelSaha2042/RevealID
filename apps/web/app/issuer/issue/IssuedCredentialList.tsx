@@ -93,7 +93,7 @@ export function IssuedCredentialList({ credentials }: { credentials: IssuedCrede
               {filteredItems.map((credential) => {
                 const revoked = Boolean(credential.revokedAt);
                 return (
-                  <tr className="hover:bg-white/5 transition-colors" key={credential.id}>
+                  <tr className="hover:bg-white/5 transition-colors" data-testid="issued-credential-row" key={credential.id}>
                     <td className="px-6 py-4 font-mono text-xs text-primary font-bold">{credential.id.slice(0, 12)}...</td>
                     <td className="px-6 py-4 text-white">{credential.holderEmail}</td>
                     <td className="px-6 py-4">

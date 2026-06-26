@@ -1,5 +1,6 @@
 import { ArrowRight, FileJson, KeyRound, LockKeyhole, ShieldCheck, Upload, Wallet, Share2 } from "lucide-react";
 import { AuthNav } from "./auth/AuthNav";
+import { BrandMark } from "../components/brand-mark";
 import { ButtonLink } from "../components/ui/button";
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
@@ -23,9 +24,8 @@ export default async function Home() {
       <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between min-h-16 py-2 md:py-0 h-auto md:h-16 flex-wrap md:flex-nowrap gap-4">
           <div className="flex items-center gap-8 shrink-0">
-            <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary flex items-center gap-2" href="/">
-              <ShieldCheck aria-hidden="true" size={20} />
-              <span>RevealID</span>
+            <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary" href="/" aria-label="RevealID home">
+              <BrandMark />
             </a>
           </div>
           <AuthNav />
@@ -185,7 +185,7 @@ export default async function Home() {
       <footer className="bg-charcoal-depth border-t border-white/10">
         <div className="max-w-container-max mx-auto px-grid-margin py-stack-lg flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start gap-2">
-            <span className="font-headline-md text-headline-md font-bold text-primary">RevealID</span>
+            <BrandMark className="footer-brand-mark" />
             <p className="font-body-md text-body-md text-on-surface-variant">© 2024 RevealID. Secure Selective Disclosure.</p>
           </div>
           <div className="flex flex-wrap justify-center gap-8">

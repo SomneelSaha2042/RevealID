@@ -189,13 +189,44 @@ p {
 .brand-lockup {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   color: var(--text);
   font-weight: 800;
 }
 
-.brand-lockup svg {
+.brand-mark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 58px;
   color: var(--primary);
+  line-height: 1;
+}
+
+.brand-mark-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.brand-mark-text {
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.footer-brand-mark {
+  align-items: flex-start;
+}
+
+.footer-brand-mark .brand-mark-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.footer-brand-mark .brand-mark-text {
+  font-size: 1rem;
 }
 
 .topbar nav {
