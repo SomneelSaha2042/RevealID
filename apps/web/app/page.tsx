@@ -2,17 +2,7 @@ import { ArrowRight, FileJson, KeyRound, LockKeyhole, ShieldCheck, Upload, Walle
 import { AuthNav } from "./auth/AuthNav";
 import { BrandMark } from "../components/brand-mark";
 import { ButtonLink } from "../components/ui/button";
-
-const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
-
-async function getHealth() {
-  try {
-    const response = await fetch(`${apiBase}/health`, { cache: "no-store" });
-    return response.ok ? "API reachable" : "API unavailable";
-  } catch {
-    return "API unavailable";
-  }
-}
+import { getHealth } from "./health";
 
 export default async function Home() {
   const health = await getHealth();
