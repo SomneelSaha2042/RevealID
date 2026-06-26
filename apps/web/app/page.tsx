@@ -22,7 +22,7 @@ export default async function Home() {
     <main className="min-h-screen bg-background text-on-background font-body-md overflow-x-hidden selection:bg-primary selection:text-on-primary-container">
       {/* TopNavBar */}
       <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between min-h-16 py-2 md:py-0 h-auto md:h-16 flex-wrap md:flex-nowrap gap-4">
+        <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between min-h-20 py-3 md:py-0 h-auto md:h-20 flex-wrap md:flex-nowrap gap-4">
           <div className="flex items-center gap-8 shrink-0">
             <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary" href="/" aria-label="RevealID home">
               <BrandMark />
@@ -32,35 +32,84 @@ export default async function Home() {
         </div>
       </header>
 
-      <main className="pt-16">
+      <main className="pt-20">
         {/* Hero Section */}
-        <section className="relative min-h-[819px] flex items-center overflow-hidden">
-          {/* Animated Background Placeholder */}
-          <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0 bg-gradient-to-b from-background/0 via-background/50 to-background"></div>
+        <section className="hero-stage relative overflow-hidden">
+          <div className="hero-mesh" aria-hidden="true">
+            <div className="hero-grid"></div>
           </div>
           <div className="relative z-10 max-w-container-max mx-auto px-grid-margin w-full">
-            <div className="max-w-3xl">
-              <p className="text-primary font-label-md tracking-widest uppercase mb-4">OpenCerts Bridge &amp; Selective Disclosure</p>
-              <h1 className="font-display-xl text-display-xl mb-6 leading-[1.1] text-white">
-                Turn an OpenCerts file into a <span className="text-primary">private sharing</span> credential.
-              </h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant mb-10 max-w-2xl">
-                RevealID verifies a holder-provided OpenCerts source, derives a wallet credential, and lets the holder share only selected academic claims with a verifier.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <ButtonLink href="/wallet/import" className="px-8 py-4 rounded-xl font-bold flex items-center gap-2 glow-hover transition-all bg-primary text-on-primary hover:opacity-90">
+            <div className="hero-layout">
+              <div className="hero-copy-panel">
+                <p className="hero-kicker">OpenCerts Bridge &amp; Selective Disclosure</p>
+                <h1>
+                  Turn an OpenCerts file into a <span>private sharing</span> credential.
+                </h1>
+                <p className="hero-lede">
+                  RevealID verifies a holder-provided OpenCerts source, derives a wallet credential, and lets the holder share only selected academic claims with a verifier.
+                </p>
+                <div className="hero-actions">
+                  <ButtonLink href="/wallet/import" className="px-8 py-4 rounded-xl font-bold flex items-center gap-2 glow-hover transition-all bg-primary text-on-primary hover:opacity-90">
                   <Upload aria-hidden="true" size={20} />
                   Import OpenCerts
-                </ButtonLink>
-                <ButtonLink href="/wallet" variant="secondary" className="border border-white/20 bg-white/5 hover:bg-white/10 px-8 py-4 rounded-xl font-bold flex items-center gap-2 transition-all text-white">
+                  </ButtonLink>
+                  <ButtonLink href="/wallet" variant="secondary" className="border border-white/20 bg-white/5 hover:bg-white/10 px-8 py-4 rounded-xl font-bold flex items-center gap-2 transition-all text-white">
                   Open wallet
                   <ArrowRight aria-hidden="true" size={20} />
-                </ButtonLink>
+                  </ButtonLink>
+                </div>
+                <div className="hero-status">
+                  <span className={isHealthy ? "healthy" : "offline"} />
+                  {health}
+                </div>
               </div>
-              <div className="mt-8 flex items-center gap-2 text-on-surface-variant font-label-sm">
-                <span className={`w-2 h-2 rounded-full ${isHealthy ? "bg-success-green" : "bg-error-red"} animate-pulse`} />
-                {health}
+
+              <div className="hero-visual" aria-label="RevealID credential preview">
+                <div className="hero-brand-card">
+                  <img src="/revealid.png" alt="RevealID icon" />
+                  <div>
+                    <strong>RevealID</strong>
+                    <span>Derived SD-JWT Credential</span>
+                  </div>
+                </div>
+                <div className="credential-preview-card">
+                  <div className="credential-preview-header">
+                    <span>Holder selected</span>
+                    <strong>Verifier view</strong>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Recipient</dt>
+                      <dd>Disclosed</dd>
+                    </div>
+                    <div>
+                      <dt>Institution</dt>
+                      <dd>Verified</dd>
+                    </div>
+                    <div>
+                      <dt>Course</dt>
+                      <dd>Shared</dd>
+                    </div>
+                    <div className="muted-row">
+                      <dt>Transcript / grades</dt>
+                      <dd>Hidden</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="proof-strip">
+                  <div>
+                    <ShieldCheck aria-hidden="true" size={18} />
+                    Source verified
+                  </div>
+                  <div>
+                    <KeyRound aria-hidden="true" size={18} />
+                    Holder bound
+                  </div>
+                  <div>
+                    <LockKeyhole aria-hidden="true" size={18} />
+                    Claims minimized
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -146,12 +195,15 @@ export default async function Home() {
               </div>
               {/* Decorative Element */}
               <div className="relative">
-                <div className="aspect-square glass-card rounded-[2rem] flex items-center justify-center p-12 overflow-hidden">
-                  <img className="w-full h-full object-contain opacity-80 group-hover:scale-105 transition-transform duration-700" alt="Futuristic digital credential wallet representation" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxDLo438ewganOKHj_Qf4MJFgLcPAc9auUQ_EpSr7uyqHnDgxJoCPzddwTp-r3dakuGV3_oiD21SuokTEnHPbtUpJ5YT5hzlpNb8DuX5FD6mrTzaGIgvfjxoQSoHMP1UA5re9qSgO1HbX-ryQXb8SuSJ5YYC4GK9qOKIt9eTFeKJfrNaqpCmZpTmqNU8SKmTf8ioN-2c7tkL8DdnH7YOUKCTNb2g6YY0LMO2sXZtytjUHblWks0eAVOnp6HcW1AuxSdeMdbWjoqRE"/>
-                  {/* Overlay UI elements */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-64 h-64 border-2 border-primary/20 rounded-full animate-[spin_20s_linear_infinite]"></div>
-                    <div className="w-80 h-80 border border-primary/10 rounded-full animate-[spin_35s_linear_infinite_reverse]"></div>
+                <div className="protocol-board">
+                  <div className="protocol-icon-tile">
+                    <img alt="RevealID icon" src="/revealid.png" />
+                    <span>RevealID</span>
+                  </div>
+                  <div className="protocol-flow">
+                    <div>OpenCerts source</div>
+                    <div>Verified import</div>
+                    <div>Holder share link</div>
                   </div>
                 </div>
               </div>

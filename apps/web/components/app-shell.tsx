@@ -19,7 +19,7 @@ export function AppShell({
     <main className="min-h-screen bg-background text-on-background font-body-md overflow-x-hidden selection:bg-primary selection:text-on-primary-container">
       {/* TopNavBar */}
       <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between min-h-16 py-2 md:py-0 h-auto md:h-16 flex-wrap md:flex-nowrap gap-4">
+        <div className="max-w-container-max mx-auto px-grid-margin flex items-center justify-between min-h-20 py-3 md:py-0 h-auto md:h-20 flex-wrap md:flex-nowrap gap-4">
           <div className="flex items-center gap-8 shrink-0">
             <a className="brand-lockup font-headline-md text-headline-md font-bold text-primary" href="/" aria-label="RevealID home">
               <BrandMark />
